@@ -12,6 +12,9 @@ type Browser interface {
 	// Variant returns the specific variant of the browser (e.g., Chrome, Edge, Chromium)
 	Variant() string
 
+	// ProfileSupport returns whether this browser supports profiles
+	ProfileSupport() bool
+
 	// FindProfiles discovers all profiles for this browser
 	FindProfiles() ([]Profile, error)
 

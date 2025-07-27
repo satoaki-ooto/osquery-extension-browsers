@@ -96,11 +96,11 @@ browser_extend_extension/
 
 **Tasks**:
 
-- [ ] Define common browser interfaces
-- [ ] Implement Chromium browser provider (`internal/browsers/chromium/`)
-- [ ] Create browser variant detection (Chrome, Edge, Chromium)
-- [ ] Build unified file discovery for Chromium-based browsers
-- [ ] Implement shared WebKit timestamp conversion
+- [x] Define common browser interfaces
+- [x] Implement Chromium browser provider (`internal/browsers/chromium/`)
+- [x] Create browser variant detection (Chrome, Edge, Chromium)
+- [x] Build unified file discovery for Chromium-based browsers
+- [x] Implement shared WebKit timestamp conversion
 
 ### Phase 2: Chromium Implementation
 
