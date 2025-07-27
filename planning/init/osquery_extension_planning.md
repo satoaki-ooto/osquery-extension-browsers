@@ -108,11 +108,11 @@ browser_extend_extension/
 
 **Tasks**:
 
-- [ ] Chromium file discovery with variant support (`chromium/finder.go`)
-- [ ] Chromium history parsing (`chromium/history.go`)
-- [ ] Chromium profile parsing (`chromium/profile.go`)
-- [ ] Browser variant identification (`chromium/variants.go`)
-- [ ] Process detection for all Chromium variants
+- [x] Chromium file discovery with variant support (`chromium/finder.go`)
+- [x] Chromium history parsing (`chromium/history.go`)
+- [x] Chromium profile parsing (`chromium/profile.go`)
+- [x] Browser variant identification (`chromium/variants.go`)
+- [x] Process detection for all Chromium variants
 
 ### Phase 3: Firefox Implementation
 

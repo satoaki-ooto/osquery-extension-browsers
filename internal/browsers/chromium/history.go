@@ -50,7 +50,6 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 		SELECT id, url, title, last_visit_time, visit_count
 		FROM urls
 		ORDER BY last_visit_time DESC
-		LIMIT 1000
 	`
 
 	rows, err := db.Query(query)
