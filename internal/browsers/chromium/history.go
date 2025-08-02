@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"osquery-extension-browsers/internal/browsers/common"
@@ -78,7 +79,7 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 			VisitTime:      parseChromeTime(lastVisitTime),
 			VisitCount:     visitCount,
 			ProfileID:      profile.ID,
-			BrowserType:    "Chromium",
+			BrowserType:    strings.ToLower(profile.BrowserVariant),
 			BrowserVariant: profile.BrowserVariant,
 		}
 
