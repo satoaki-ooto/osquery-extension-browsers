@@ -1,1 +1,4 @@
-browser_extend_extension*
+browser-extend-extension*
+
+.crush/
+.cu/
