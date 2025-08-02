@@ -25,6 +25,16 @@ func DetectInstalledBrowsers() []string {
 		browsers = append(browsers, "Chromium")
 	}
 
+	// Check for Brave
+	if isBrowserInstalled(getBravePaths()) {
+		browsers = append(browsers, "Brave")
+	}
+
+	// Check for Vivaldi
+	if isBrowserInstalled(getVivaldiPaths()) {
+		browsers = append(browsers, "Vivaldi")
+	}
+
 	// Check for Firefox
 	if isBrowserInstalled(getFirefoxPaths()) {
 		browsers = append(browsers, "Firefox")
@@ -110,6 +120,40 @@ func getFirefoxPaths() []string {
 		paths = append(paths, "/Applications/Firefox.app/Contents/MacOS/firefox")
 	default:
 		paths = append(paths, "/usr/bin/firefox")
+	}
+
+	return paths
+}
+
+// getBravePaths returns the paths where Brave might be installed
+func getBravePaths() []string {
+	var paths []string
+
+	switch runtime.GOOS {
+	case "windows":
+		paths = append(paths, filepath.Join(os.Getenv("PROGRAMFILES"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"))
+		paths = append(paths, filepath.Join(os.Getenv("PROGRAMFILES(X86)"), "BraveSoftware", "Brave-Browser", "Application", "brave.exe"))
+	case "darwin":
+		paths = append(paths, "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser")
+	default:
+		paths = append(paths, "/usr/bin/brave-browser")
+	}
+
+	return paths
+}
+
+// getVivaldiPaths returns the paths where Vivaldi might be installed
+func getVivaldiPaths() []string {
+	var paths []string
+
+	switch runtime.GOOS {
+	case "windows":
+		paths = append(paths, filepath.Join(os.Getenv("PROGRAMFILES"), "Vivaldi", "Application", "vivaldi.exe"))
+		paths = append(paths, filepath.Join(os.Getenv("PROGRAMFILES(X86)"), "Vivaldi", "Application", "vivaldi.exe"))
+	case "darwin":
+		paths = append(paths, "/Applications/Vivaldi.app/Contents/MacOS/Vivaldi")
+	default:
+		paths = append(paths, "/usr/bin/vivaldi")
 	}
 
 	return paths

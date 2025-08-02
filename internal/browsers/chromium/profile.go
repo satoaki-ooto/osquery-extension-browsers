@@ -110,7 +110,7 @@ func FindProfiles() ([]common.Profile, error) {
 
 			// Set browser type and variant
 			profile.BrowserVariant = getBrowserVariant(userDataDir)
-			profile.BrowserType = profile.BrowserVariant
+			profile.BrowserType = strings.ToLower(profile.BrowserVariant)
 
 			profiles = append(profiles, profile)
 		}
@@ -122,13 +122,17 @@ func FindProfiles() ([]common.Profile, error) {
 // getBrowserVariant determines the browser variant based on the user data directory path
 func getBrowserVariant(userDataDir string) string {
 	switch {
-	case strings.Contains(userDataDir, "Chrome"):
-		return "Chrome"
-	case strings.Contains(userDataDir, "Edge"):
-		return "Edge"
-	case strings.Contains(userDataDir, "Chromium"):
-		return "Chromium"
+	case strings.Contains(strings.ToLower(userDataDir), "chrome"):
+		return "chrome"
+	case strings.Contains(strings.ToLower(userDataDir), "edge"):
+		return "edge"
+	case strings.Contains(strings.ToLower(userDataDir), "chromium"):
+		return "chromium"
+	case strings.Contains(strings.ToLower(userDataDir), "brave"):
+		return "brave"
+	case strings.Contains(strings.ToLower(userDataDir), "vivaldi"):
+		return "vivaldi"
 	default:
-		return "Chromium"
+		return "chromium"
 	}
 }

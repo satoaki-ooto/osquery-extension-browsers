@@ -37,6 +37,18 @@ func DetectBrowserVariants() []BrowserVariant {
 			Process: "chromium.exe",
 		})
 
+		variants = append(variants, BrowserVariant{
+			Name:    "Brave",
+			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "BraveSoftware", "Brave-Browser", "User Data")},
+			Process: "brave.exe",
+		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Vivaldi",
+			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "Vivaldi", "User Data")},
+			Process: "vivaldi.exe",
+		})
+
 	case "darwin":
 		variants = append(variants, BrowserVariant{
 			Name:    "Chrome",
@@ -56,6 +68,18 @@ func DetectBrowserVariants() []BrowserVariant {
 			Process: "Chromium",
 		})
 
+		variants = append(variants, BrowserVariant{
+			Name:    "Brave",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "BraveSoftware", "Brave-Browser")},
+			Process: "Brave Browser",
+		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Vivaldi",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Vivaldi")},
+			Process: "Vivaldi",
+		})
+
 	default:
 		variants = append(variants, BrowserVariant{
 			Name:    "Chrome",
@@ -73,6 +97,18 @@ func DetectBrowserVariants() []BrowserVariant {
 			Name:    "Chromium",
 			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "chromium")},
 			Process: "chromium",
+		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Brave",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "BraveSoftware", "Brave-Browser")},
+			Process: "brave",
+		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Vivaldi",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "vivaldi")},
+			Process: "vivaldi",
 		})
 	}
 
