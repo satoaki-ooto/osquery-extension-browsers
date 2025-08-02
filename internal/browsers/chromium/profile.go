@@ -109,8 +109,8 @@ func FindProfiles() ([]common.Profile, error) {
 			}
 
 			// Set browser type and variant
-			profile.BrowserType = "Chromium"
 			profile.BrowserVariant = getBrowserVariant(userDataDir)
+			profile.BrowserType = profile.BrowserVariant
 
 			profiles = append(profiles, profile)
 		}
