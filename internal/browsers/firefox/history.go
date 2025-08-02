@@ -58,8 +58,8 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 			VisitTime:      parseUnixTime(visitDate),
 			VisitCount:     visitCount,
 			ProfileID:      profile.ID,
-			BrowserType:    "Firefox",
-			BrowserVariant: "Firefox",
+			BrowserType:    profile.BrowserType,
+			BrowserVariant: profile.BrowserVariant,
 		}
 
 		historyEntries = append(historyEntries, historyEntry)

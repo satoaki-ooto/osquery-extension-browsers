@@ -22,6 +22,10 @@ func FindFirefoxPaths() []string {
 	default:
 		// Linux paths for Firefox
 		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox"))
+		// Linux paths for Zen Browser
+		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".zen"))
+		// Linux paths for Zen Browser (Flatpak)
+		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".var", "app", "app.zen_browser.zen", ".zen"))
 	}
 
 	return paths

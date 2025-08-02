@@ -74,6 +74,12 @@ func DetectBrowserVariants() []BrowserVariant {
 			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox")},
 			Process: "firefox",
 		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Zen Browser",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".zen"), filepath.Join(os.Getenv("HOME"), ".var", "app", "app.zen_browser.zen", ".zen")},
+			Process: "zen",
+		})
 	}
 
 	return variants
