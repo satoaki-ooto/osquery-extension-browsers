@@ -24,7 +24,7 @@ func FindProfiles() ([]common.Profile, error) {
 		}
 
 		// Read the profiles.ini file
-		profilesIniPath := filepath.Join(filepath.Dir(profilesDir), "profiles.ini")
+		profilesIniPath := filepath.Join(profilesDir, "profiles.ini")
 		if _, err := os.Stat(profilesIniPath); os.IsNotExist(err) {
 			// If profiles.ini doesn't exist, try to find profiles in the directory
 			profile, err := findProfilesInDirectory(profilesDir)
@@ -80,8 +80,8 @@ func readProfilesIni(profilesIniPath, profilesDir string) ([]common.Profile, err
 // parseProfileSection parses a profile section from the profiles.ini file
 func parseProfileSection(section *ini.Section, profilesDir string) (common.Profile, error) {
 	profile := common.Profile{
-		BrowserType:    "Firefox",
-		BrowserVariant: "Firefox",
+		BrowserType:    "firefox",
+		BrowserVariant: "firefox",
 	}
 
 	// Get the profile name
@@ -121,8 +121,8 @@ func findProfilesInDirectory(profilesDir string) (common.Profile, error) {
 		ID:             "default",
 		Name:           "Default",
 		Path:           profilesDir,
-		BrowserType:    "Firefox",
-		BrowserVariant: "Firefox",
+		BrowserType:    "firefox",
+		BrowserVariant: "firefox",
 	}
 
 	return profile, nil

@@ -41,7 +41,8 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 
 	for rows.Next() {
 		var id int64
-		var url, title string
+		var url string
+		var title sql.NullString
 		var visitDate int64
 		var visitCount int
 
@@ -53,7 +54,7 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 		historyEntry := common.HistoryEntry{
 			ID:             id,
 			URL:            url,
-			Title:          title,
+			Title:          title.String,
 			VisitTime:      parseUnixTime(visitDate),
 			VisitCount:     visitCount,
 			ProfileID:      profile.ID,
