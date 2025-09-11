@@ -273,6 +273,41 @@ func TestFindHistoryErrorHandling(t *testing.T) {
 		}
 	})
 
+	t.Run("profile_with_floorp_variant", func(t *testing.T) {
+		// Create a temporary directory for testing
+		tempDir, err := ioutil.TempDir("", "floorp_test_")
+		if err != nil {
+			t.Fatalf("Failed to create temp dir: %v", err)
+		}
+		defer os.RemoveAll(tempDir)
+
+		// Create a Floorp profile
+		profile := common.Profile{
+			ID:             "floorp-profile",
+			Name:           "Floorp Profile",
+			Path:           tempDir,
+			BrowserType:    "floorp",
+			BrowserVariant: "floorp",
+		}
+
+		// Call FindHistory - should return empty slice with no error
+		historyEntries, err := FindHistory(profile)
+
+		// Verify no error occurred
+		if err != nil {
+			t.Errorf("Expected no error for missing places.sqlite in Floorp profile, got: %v", err)
+		}
+
+		// Verify empty slice is returned
+		if historyEntries == nil {
+			t.Error("Expected empty slice, got nil")
+		}
+
+		if len(historyEntries) != 0 {
+			t.Errorf("Expected empty slice, got %d entries", len(historyEntries))
+		}
+	})
+
 	t.Run("profile_with_empty_path", func(t *testing.T) {
 		// Create a profile with empty path
 		profile := common.Profile{

@@ -55,6 +55,8 @@ func TestFindFirefoxPathsForUser(t *testing.T) {
 			},
 			expected: []string{
 				"/Users/testuser/Library/Application Support/Firefox/Profiles",
+				"/Users/testuser/Library/Application Support/zen/Profiles",
+				"/Users/testuser/Library/Application Support/Floorp/Profiles",
 			},
 		},
 		{
@@ -192,6 +194,8 @@ func getExpectedPathsForOS(user common.UserInfo) []string {
 		paths = append(paths, filepath.Join(appData, "Mozilla", "Firefox", "Profiles"))
 	case "darwin":
 		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Firefox", "Profiles"))
+		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "zen", "Profiles"))
+		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Floorp", "Profiles"))
 	default:
 		paths = append(paths, filepath.Join(user.HomeDir, ".mozilla", "firefox"))
 		paths = append(paths, filepath.Join(user.HomeDir, ".zen"))
@@ -208,6 +212,8 @@ func containsWindowsFirefoxPath(path string) bool {
 
 func containsDarwinFirefoxPath(path string) bool {
 	return strings.Contains(path, "Library/Application Support/Firefox") ||
+		strings.Contains(path, "Library/Application Support/zen") ||
+		strings.Contains(path, "Library/Application Support/Floorp") ||
 		strings.Contains(path, "Application Support")
 }
 
