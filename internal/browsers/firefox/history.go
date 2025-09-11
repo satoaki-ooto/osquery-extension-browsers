@@ -3,6 +3,7 @@ package firefox
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -11,9 +12,27 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// FindHistory discovers history entries for a specific Firefox profile
+// FindHistory discovers history entries for a specific Firefox profile.
+//
+// The function automatically handles missing places.sqlite databases by returning
+// an empty slice with no error (silent skip). This ensures that profiles without
+// history databases don't cause the entire browser history collection to fail.
+//
+// Behavior:
+//   - If places.sqlite doesn't exist: returns empty []common.HistoryEntry with nil error
+//   - If places.sqlite exists but is invalid: returns error from database operations
+//   - If places.sqlite exists and is valid: returns history entries or database errors
+//
+// This graceful handling aligns with the robust error handling pattern used throughout
+// the extension, where individual profile failures don't stop overall processing.
 func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 	historyDBPath := getHistoryDBPath(profile.Path)
+
+	// Check if places.sqlite exists before attempting to open it
+	if _, err := os.Stat(historyDBPath); os.IsNotExist(err) {
+		// Return empty slice with no error (silent skip)
+		return []common.HistoryEntry{}, nil
+	}
 
 	// Open the SQLite database
 	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro&immutable=1", historyDBPath))
