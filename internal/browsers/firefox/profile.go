@@ -114,9 +114,16 @@ func parseProfileSection(section *ini.Section, profilesDir string) (common.Profi
 	profile.ID = filepath.Base(profile.Path)
 
 	// Check if this is a Zen Browser profile
-	if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" {
+	if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" ||
+		filepath.Base(filepath.Dir(profilesDir)) == "zen" || filepath.Base(profilesDir) == "zen" {
 		profile.BrowserType = "zen"
 		profile.BrowserVariant = "zen"
+	}
+
+	// Check if this is a Floorp profile
+	if filepath.Base(filepath.Dir(profilesDir)) == "Floorp" || filepath.Base(profilesDir) == "Floorp" {
+		profile.BrowserType = "floorp"
+		profile.BrowserVariant = "floorp"
 	}
 
 	return profile, nil
@@ -149,9 +156,16 @@ func findProfilesInDirectory(profilesDir string) ([]common.Profile, error) {
 			}
 
 			// Check if this is a Zen Browser profile directory
-			if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" {
+			if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" ||
+				filepath.Base(filepath.Dir(profilesDir)) == "zen" || filepath.Base(profilesDir) == "zen" {
 				profile.BrowserType = "zen"
 				profile.BrowserVariant = "zen"
+			}
+
+			// Check if this is a Floorp profile directory
+			if filepath.Base(filepath.Dir(profilesDir)) == "Floorp" || filepath.Base(profilesDir) == "Floorp" {
+				profile.BrowserType = "floorp"
+				profile.BrowserVariant = "floorp"
 			}
 
 			// Debug output

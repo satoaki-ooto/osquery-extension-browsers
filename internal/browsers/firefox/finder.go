@@ -53,6 +53,10 @@ func findFirefoxPathsForUser(user common.UserInfo) []string {
 	case "darwin":
 		// macOS paths for Firefox
 		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Firefox", "Profiles"))
+		// macOS paths for Zen Browser
+		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "zen", "Profiles"))
+		// macOS paths for Floorp
+		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Floorp", "Profiles"))
 
 	default:
 		// Linux paths for Firefox
@@ -86,6 +90,10 @@ func findFirefoxPathsCurrentUser() []string {
 	case "darwin":
 		// macOS paths for Firefox
 		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Firefox", "Profiles"))
+		// macOS paths for Zen Browser
+		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "zen", "Profiles"))
+		// macOS paths for Floorp
+		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Floorp", "Profiles"))
 
 	default:
 		// Linux paths for Firefox

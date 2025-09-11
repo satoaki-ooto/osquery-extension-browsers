@@ -56,6 +56,18 @@ func DetectBrowserVariants() []BrowserVariant {
 			Process: "Firefox Nightly",
 		})
 
+		variants = append(variants, BrowserVariant{
+			Name:    "Zen Browser",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "zen", "Profiles")},
+			Process: "zen",
+		})
+
+		variants = append(variants, BrowserVariant{
+			Name:    "Floorp",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Floorp", "Profiles")},
+			Process: "floorp",
+		})
+
 	default:
 		variants = append(variants, BrowserVariant{
 			Name:    "Firefox",
