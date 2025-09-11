@@ -19,7 +19,7 @@
   - Write comprehensive unit tests for enhanced Firefox path detection
   - _Requirements: 4.1, 4.3, 4.4, 5.1, 5.2, 5.4_
 
-- [ ] 4. Enhance FindChromiumPaths with multi-user support
+- [x] 4. Enhance FindChromiumPaths with multi-user support
   - Modify `FindChromiumPaths()` function to use `usersFromContext()` and scan all users
   - Implement graceful error handling for inaccessible user directories
   - Add fallback mechanism to current user when system enumeration fails
