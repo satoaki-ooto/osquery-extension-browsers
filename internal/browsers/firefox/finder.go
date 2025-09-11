@@ -17,28 +17,20 @@ func FindFirefoxPaths() []string {
 		return findFirefoxPathsCurrentUser()
 	}
 
-	var allPaths []string
-	var mu sync.Mutex
-	var wg sync.WaitGroup
-
-	// Use goroutines to scan users concurrently
+	// Filter accessible users
+	var accessibleUsers []common.UserInfo
 	for _, user := range users {
-		if !user.IsAccessible {
-			continue
+		if user.IsAccessible {
+			accessibleUsers = append(accessibleUsers, user)
 		}
-
-		wg.Add(1)
-		go func(u common.UserInfo) {
-			defer wg.Done()
-			userPaths := findFirefoxPathsForUser(u)
-
-			mu.Lock()
-			allPaths = append(allPaths, userPaths...)
-			mu.Unlock()
-		}(user)
 	}
 
-	wg.Wait()
+	if len(accessibleUsers) == 0 {
+		return findFirefoxPathsCurrentUser()
+	}
+
+	// Use worker pool for better performance and resource management
+	allPaths := scanUsersWithWorkerPool(accessibleUsers, findFirefoxPathsForUser)
 
 	// If no paths found from users, fallback to current user
 	if len(allPaths) == 0 {
@@ -105,4 +97,55 @@ func findFirefoxPathsCurrentUser() []string {
 	}
 
 	return paths
+}
+
+// scanUsersWithWorkerPool scans users concurrently using a worker pool pattern
+func scanUsersWithWorkerPool(users []common.UserInfo, scanFunc func(common.UserInfo) []string) []string {
+	// Determine optimal number of workers based on system and user count
+	maxWorkers := runtime.NumCPU()
+	if len(users) < maxWorkers {
+		maxWorkers = len(users)
+	}
+	if maxWorkers > 10 {
+		maxWorkers = 10 // Cap at 10 to avoid excessive resource usage
+	}
+
+	// Create channels for work distribution
+	userChan := make(chan common.UserInfo, len(users))
+	resultChan := make(chan []string, len(users))
+
+	// Start workers
+	var wg sync.WaitGroup
+	for i := 0; i < maxWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for user := range userChan {
+				paths := scanFunc(user)
+				resultChan <- paths
+			}
+		}()
+	}
+
+	// Send work to workers
+	go func() {
+		defer close(userChan)
+		for _, user := range users {
+			userChan <- user
+		}
+	}()
+
+	// Close result channel when all workers are done
+	go func() {
+		wg.Wait()
+		close(resultChan)
+	}()
+
+	// Collect results
+	var allPaths []string
+	for paths := range resultChan {
+		allPaths = append(allPaths, paths...)
+	}
+
+	return allPaths
 }
