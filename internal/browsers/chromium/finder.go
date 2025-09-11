@@ -13,8 +13,7 @@ import (
 func FindChromiumPaths() []string {
 	users, err := common.UsersFromContext()
 	if err != nil || len(users) == 0 {
-		// Fallback to current user paths
-		return findChromiumPathsCurrentUser()
+		return []string{}
 	}
 
 	// Filter accessible users
@@ -26,16 +25,11 @@ func FindChromiumPaths() []string {
 	}
 
 	if len(accessibleUsers) == 0 {
-		return findChromiumPathsCurrentUser()
+		return []string{}
 	}
 
 	// Use worker pool for better performance and resource management
 	allPaths := scanUsersWithWorkerPool(accessibleUsers, findChromiumPathsForUser)
-
-	// If no paths found from users, fallback to current user
-	if len(allPaths) == 0 {
-		allPaths = findChromiumPathsCurrentUser()
-	}
 
 	return allPaths
 }
@@ -82,37 +76,6 @@ func findChromiumPathsForUser(user common.UserInfo) []string {
 	}
 
 	return existingPaths
-}
-
-// findChromiumPathsCurrentUser returns Chromium paths for the current user only (fallback)
-func findChromiumPathsCurrentUser() []string {
-	var paths []string
-
-	switch runtime.GOOS {
-	case "windows":
-		// Windows paths for Chromium-based browsers
-		paths = append(paths, filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "User Data"))
-		paths = append(paths, filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data"))
-		paths = append(paths, filepath.Join(os.Getenv("LOCALAPPDATA"), "Chromium", "User Data"))
-
-	case "darwin":
-		// macOS paths for Chromium-based browsers
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Google", "Chrome"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Microsoft Edge"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Chromium"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "BraveSoftware", "Brave-Browser"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Vivaldi"))
-
-	default:
-		// Linux paths for Chromium-based browsers
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".config", "google-chrome"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".config", "microsoft-edge"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".config", "chromium"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".config", "BraveSoftware", "Brave-Browser"))
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".config", "vivaldi"))
-	}
-
-	return paths
 }
 
 // scanUsersWithWorkerPool scans users concurrently using a worker pool pattern

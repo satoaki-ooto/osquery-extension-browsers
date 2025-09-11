@@ -119,33 +119,6 @@ func TestFindFirefoxPathsForUser(t *testing.T) {
 	}
 }
 
-func TestFindFirefoxPathsCurrentUser(t *testing.T) {
-	paths := findFirefoxPathsCurrentUser()
-
-	// Should return at least one path for current OS
-	if len(paths) == 0 {
-		t.Error("findFirefoxPathsCurrentUser() returned no paths")
-	}
-
-	// Verify paths are appropriate for current OS
-	for _, path := range paths {
-		switch runtime.GOOS {
-		case "windows":
-			if !filepath.IsAbs(path) || !containsWindowsFirefoxPath(path) {
-				t.Errorf("Invalid Windows Firefox path: %s", path)
-			}
-		case "darwin":
-			if !filepath.IsAbs(path) || !containsDarwinFirefoxPath(path) {
-				t.Errorf("Invalid macOS Firefox path: %s", path)
-			}
-		default:
-			if !filepath.IsAbs(path) || !containsLinuxFirefoxPath(path) {
-				t.Errorf("Invalid Linux Firefox path: %s", path)
-			}
-		}
-	}
-}
-
 func TestFindFirefoxPathsErrorHandling(t *testing.T) {
 	// Test with inaccessible user
 	inaccessibleUser := common.UserInfo{
