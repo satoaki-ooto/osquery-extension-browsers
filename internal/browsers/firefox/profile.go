@@ -2,7 +2,6 @@ package firefox
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -156,7 +155,7 @@ func findProfilesInDirectory(profilesDir string) ([]common.Profile, error) {
 			}
 
 			// Debug output
-			fmt.Printf("Profile Name: %s, Profile Path: %s, BrowserType: %s, BrowserVariant: %s\n", profile.Name, profile.Path, profile.BrowserType, profile.BrowserVariant)
+			// fmt.Printf("Profile Name: %s, Profile Path: %s, BrowserType: %s, BrowserVariant: %s\n", profile.Name, profile.Path, profile.BrowserType, profile.BrowserVariant)
 
 			profiles = append(profiles, profile)
 		}
