@@ -127,33 +127,6 @@ func TestFindChromiumPathsForUser(t *testing.T) {
 	}
 }
 
-func TestFindChromiumPathsCurrentUser(t *testing.T) {
-	paths := findChromiumPathsCurrentUser()
-
-	// Should return at least one path for current OS
-	if len(paths) == 0 {
-		t.Error("findChromiumPathsCurrentUser() returned no paths")
-	}
-
-	// Verify paths are appropriate for current OS
-	for _, path := range paths {
-		switch runtime.GOOS {
-		case "windows":
-			if !filepath.IsAbs(path) || !containsWindowsChromiumPath(path) {
-				t.Errorf("Invalid Windows Chromium path: %s", path)
-			}
-		case "darwin":
-			if !filepath.IsAbs(path) || !containsDarwinChromiumPath(path) {
-				t.Errorf("Invalid macOS Chromium path: %s", path)
-			}
-		default:
-			if !filepath.IsAbs(path) || !containsLinuxChromiumPath(path) {
-				t.Errorf("Invalid Linux Chromium path: %s", path)
-			}
-		}
-	}
-}
-
 func TestFindChromiumPathsErrorHandling(t *testing.T) {
 	// Test with inaccessible user
 	inaccessibleUser := common.UserInfo{

@@ -13,8 +13,7 @@ import (
 func FindFirefoxPaths() []string {
 	users, err := common.UsersFromContext()
 	if err != nil || len(users) == 0 {
-		// Fallback to current user paths
-		return findFirefoxPathsCurrentUser()
+		return []string{}
 	}
 
 	// Filter accessible users
@@ -26,16 +25,11 @@ func FindFirefoxPaths() []string {
 	}
 
 	if len(accessibleUsers) == 0 {
-		return findFirefoxPathsCurrentUser()
+		return []string{}
 	}
 
 	// Use worker pool for better performance and resource management
 	allPaths := scanUsersWithWorkerPool(accessibleUsers, findFirefoxPathsForUser)
-
-	// If no paths found from users, fallback to current user
-	if len(allPaths) == 0 {
-		allPaths = findFirefoxPathsCurrentUser()
-	}
 
 	return allPaths
 }
@@ -76,35 +70,6 @@ func findFirefoxPathsForUser(user common.UserInfo) []string {
 	}
 
 	return existingPaths
-}
-
-// findFirefoxPathsCurrentUser returns Firefox paths for the current user only (fallback)
-func findFirefoxPathsCurrentUser() []string {
-	var paths []string
-
-	switch runtime.GOOS {
-	case "windows":
-		// Windows paths for Firefox
-		paths = append(paths, filepath.Join(os.Getenv("APPDATA"), "Mozilla", "Firefox", "Profiles"))
-
-	case "darwin":
-		// macOS paths for Firefox
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Firefox", "Profiles"))
-		// macOS paths for Zen Browser
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "zen", "Profiles"))
-		// macOS paths for Floorp
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Floorp", "Profiles"))
-
-	default:
-		// Linux paths for Firefox
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox"))
-		// Linux paths for Zen Browser
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".zen"))
-		// Linux paths for Zen Browser (Flatpak)
-		paths = append(paths, filepath.Join(os.Getenv("HOME"), ".var", "app", "app.zen_browser.zen", ".zen"))
-	}
-
-	return paths
 }
 
 // scanUsersWithWorkerPool scans users concurrently using a worker pool pattern
