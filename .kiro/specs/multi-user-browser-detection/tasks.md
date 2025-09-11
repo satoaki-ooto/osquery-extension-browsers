@@ -1,7 +1,7 @@
 # Implementation Plan
 
-- [ ] 1. Create user enumeration infrastructure
-  - Implement `UserInfo` struct and `usersFromContext()` function in `internal/common/detector.go`
+- [x] 1. Create user enumeration infrastructure
+  - Implement `UserInfo` struct and `usersFromContext()` function in `internal/browser/common/detector.go`
   - Add cross-platform user enumeration logic with proper error handling
   - Include unit tests for user enumeration functionality
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 5.3_

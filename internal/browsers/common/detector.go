@@ -2,6 +2,7 @@ package common
 
 import (
 	"bufio"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,6 +37,7 @@ func getUsersLinux() ([]UserInfo, error) {
 
 	file, err := os.Open("/etc/passwd")
 	if err != nil {
+		log.Printf("Warning: Failed to open /etc/passwd for user enumeration: %v", err)
 		return users, err
 	}
 	defer file.Close()
@@ -65,6 +67,8 @@ func getUsersLinux() ([]UserInfo, error) {
 				// Check if home directory is accessible
 				if _, err := os.Stat(homeDir); err == nil {
 					user.IsAccessible = true
+				} else {
+					log.Printf("Debug: User %s home directory not accessible: %v", username, err)
 				}
 
 				users = append(users, user)
@@ -83,6 +87,7 @@ func getUsersMacOS() ([]UserInfo, error) {
 	cmd := exec.Command("dscl", ".", "list", "/Users")
 	output, err := cmd.Output()
 	if err != nil {
+		log.Printf("Warning: Failed to enumerate macOS users with dscl: %v", err)
 		return users, err
 	}
 
@@ -97,6 +102,7 @@ func getUsersMacOS() ([]UserInfo, error) {
 		cmd := exec.Command("dscl", ".", "read", "/Users/"+username)
 		userOutput, err := cmd.Output()
 		if err != nil {
+			log.Printf("Debug: Failed to get user info for %s: %v", username, err)
 			continue
 		}
 
@@ -123,6 +129,8 @@ func getUsersMacOS() ([]UserInfo, error) {
 			// Check if home directory is accessible
 			if _, err := os.Stat(homeDir); err == nil {
 				user.IsAccessible = true
+			} else {
+				log.Printf("Debug: User %s home directory not accessible: %v", username, err)
 			}
 
 			users = append(users, user)
@@ -140,6 +148,7 @@ func getUsersWindows() ([]UserInfo, error) {
 	usersDir := filepath.Join("C:", "Users")
 	entries, err := os.ReadDir(usersDir)
 	if err != nil {
+		log.Printf("Warning: Failed to read Windows users directory: %v", err)
 		return users, err
 	}
 
@@ -164,6 +173,8 @@ func getUsersWindows() ([]UserInfo, error) {
 		// Check if home directory is accessible
 		if _, err := os.Stat(homeDir); err == nil {
 			user.IsAccessible = true
+		} else {
+			log.Printf("Debug: User %s home directory not accessible: %v", username, err)
 		}
 
 		users = append(users, user)
