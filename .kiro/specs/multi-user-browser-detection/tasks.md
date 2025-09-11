@@ -6,7 +6,7 @@
   - Include unit tests for user enumeration functionality
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 5.3_
 
-- [ ] 2. Implement helper functions for multi-user path generation
+- [x] 2. Implement helper functions for multi-user path generation
   - Create `findFirefoxPathsForUser()` helper function in `internal/browsers/firefox/finder.go`
   - Create `findChromiumPathsForUser()` helper function in `internal/browsers/chromium/finder.go`
   - Add unit tests for per-user path generation logic
