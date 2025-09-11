@@ -1,6 +1,6 @@
 module osquery-extension-browsers
 
-go 1.24.3
+go 1.22
 
 require (
 	github.com/osquery/osquery-go v0.0.0-20250131154556-629f995b6947
