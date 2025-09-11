@@ -12,7 +12,7 @@
   - Add unit tests for per-user path generation logic
   - _Requirements: 4.1, 4.2, 2.1, 2.2_
 
-- [ ] 3. Enhance FindFirefoxPaths with multi-user support
+- [x] 3. Enhance FindFirefoxPaths with multi-user support
   - Modify `FindFirefoxPaths()` function to use `usersFromContext()` and scan all users
   - Implement graceful error handling for inaccessible user directories
   - Add fallback mechanism to current user when system enumeration fails
