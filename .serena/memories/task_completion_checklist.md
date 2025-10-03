@@ -1,73 +1,43 @@
 # Task Completion Checklist
 
-## Required Steps After Implementing Changes
+## Before Submitting Changes
+### Required Steps (in order):
+1. **Format Code**: Run `go fmt ./...` - ensures consistent formatting
+2. **Run Tests**: Execute `go test ./...` - verify all tests pass
+3. **Run Linter**: Execute `golangci-lint run` - check code quality and style
+4. **Build Verification**: Run `make build` - ensure code compiles successfully
 
-### 1. Code Quality Checks
-```bash
-# Format code (ALWAYS required)
-go fmt ./...
+### Optional Quality Checks:
+- **Test Coverage**: Run `make test-coverage` for coverage analysis
+- **Cross-platform Build**: Run `make build-all` for multi-platform verification  
+- **Clean Build**: Run `make clean && make build` for fresh build verification
 
-# Run linter if available (install golangci-lint if not present)
-make lint
-# or: golangci-lint run
-```
+## Code Review Guidelines
+- Verify error handling is explicit and descriptive
+- Check that interfaces are properly implemented
+- Ensure tests are added for new functionality
+- Confirm documentation is updated for exported functions
+- Validate that naming follows Go conventions
 
-### 2. Testing
-```bash
-# Run all tests
-make test
-# or: go test -v ./...
+## Git Workflow
+1. Create feature branch from main
+2. Make changes following code style conventions
+3. Run complete checklist above
+4. Commit with descriptive message
+5. Create pull request with clear description
 
-# Run tests with coverage for comprehensive changes
-make test-coverage
-```
+## Security Considerations
+- Review browser data access patterns
+- Ensure proper file permission handling
+- Validate input sanitization for SQL queries
+- Check for potential information disclosure
 
-### 3. Build Verification
-```bash
-# Test build for current platform
-make build
+## Platform-specific Testing
+- Test on target operating systems (Windows, macOS, Linux)
+- Verify browser detection works across different versions
+- Validate profile enumeration on multi-user systems
 
-# For cross-platform changes, test all platforms
-make build-all
-```
-
-### 4. Dependency Management
-```bash
-# Update dependencies if new imports were added
-go mod tidy
-```
-
-### 5. Final Verification
-```bash
-# Run all checks together
-make check  # This runs both lint and test
-```
-
-## Special Considerations
-
-### For New Dependencies
-- Always verify the dependency is appropriate and secure
-- Run `go mod tidy` after adding imports
-- Check if similar functionality already exists in the codebase
-
-### For Platform-Specific Code
-- Test on multiple platforms if possible
-- Ensure all OS cases are handled in switch statements
-- Verify file paths use proper separators
-
-### For Browser-Related Changes
-- Test with multiple browser variants
-- Ensure profile detection works correctly
-- Validate SQLite database access patterns
-
-### For Interface Changes
-- Ensure all implementations are updated
-- Check for breaking changes in the common interfaces
-- Verify backward compatibility
-
-## Installation Requirements
-Note: `golangci-lint` is not currently installed on the system. Install it for full linting capability:
-```bash
-# Install golangci-lint for comprehensive linting
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-```
+## Integration Testing
+- Test with actual osquery instance
+- Verify socket communication
+- Validate SQL query results match expected browser history data

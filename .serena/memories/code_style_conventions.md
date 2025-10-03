@@ -1,42 +1,46 @@
-# Code Style and Conventions
+# Code Style Conventions
 
-## Go Conventions
-Following standard Go conventions as outlined in AGENTS.md:
+## Go Language Conventions
+- **Go Version**: 1.22
+- **Module Name**: `osquery-extension-browsers`
 
-### Import Organization
-1. **Standard library packages** (e.g., `fmt`, `os`, `path/filepath`)
-2. **Third-party packages** (e.g., `github.com/osquery/osquery-go`)
-3. **Local packages** (e.g., `osquery-extension-browsers/internal/...`)
+## Import Organization
+1. Standard library packages
+2. Third-party packages  
+3. Local packages
+- Use aliases only when necessary to avoid conflicts
+- Remove unused imports
 
-### Naming Conventions
-- **Variables and functions**: camelCase (e.g., `browserHistoryTable`, `generateBrowserHistory`)
-- **Exported names**: PascalCase (e.g., `FindProfiles`, `HistoryEntry`)
-- **Constants**: PascalCase for exported, camelCase for unexported
-- **Interfaces**: Often end with -er suffix or descriptive names (e.g., `Browser`)
+## Naming Conventions
+- **Variables/Functions**: camelCase (e.g., `findProfiles`, `historyEntry`)
+- **Exported Names**: PascalCase (e.g., `Browser`, `FindProfiles`)
+- **Constants**: ALL_CAPS with underscores (following Go conventions)
+- **Interfaces**: Descriptive names without "I" prefix (e.g., `Browser` not `IBrowser`)
 
-### Code Organization
-- **Package structure**: Domain-driven with `internal/browsers/{browser-type}/` structure
-- **Interfaces**: Defined in `internal/browsers/common/interfaces.go` for cross-browser abstraction
-- **Error handling**: Always explicit, with context wrapping using `fmt.Errorf("context: %w", err)`
+## Code Formatting
+- **Tool**: Use `go fmt` for all formatting
+- **Line Length**: Maximum 100 characters
+- **Indentation**: Tabs (not spaces) - Go standard
+- **Braces**: Opening brace on same line (Go style)
 
-### Formatting Rules
-- **Line length**: 100 characters maximum
-- **Indentation**: Tabs (not spaces)
-- **Formatting**: Always use `go fmt ./...`
-- **Imports**: Remove unused imports, use aliases only when necessary
+## Error Handling
+- Always handle errors explicitly - never ignore with `_`
+- Wrap errors with context: `fmt.Errorf("context: %w", err)`
+- Use descriptive error messages
+- Return errors as the last return value
 
-### Comments and Documentation
-- **NO COMMENTS**: The project explicitly avoids adding comments unless requested
-- **Function names**: Should be descriptive enough to be self-documenting
-- **Variable names**: Prefer descriptive names over abbreviations
+## Testing Conventions
+- Test files: `*_test.go` in same package
+- Test functions: `TestFunctionName` or `TestStruct_MethodName`  
+- Use table-driven tests for multiple test cases
+- Include both unit tests and integration tests
 
-### Testing Conventions
-- **Test files**: `*_test.go` suffix in same package
-- **Test functions**: `TestFunctionName` or `TestStruct_MethodName`
-- **Table-driven tests**: Preferred for multiple test cases
-- **Current status**: No tests present in codebase yet
+## Documentation
+- Document all exported functions, types, and variables
+- Use Go doc comments (start with function/type name)
+- Keep comments concise and focused on "why" not "what"
 
-### Platform-Specific Code
-- Uses `runtime.GOOS` for platform detection
-- Platform-specific paths organized in separate case statements
-- Supports Windows, Darwin (macOS), and Linux
+## Package Structure
+- Keep packages focused and cohesive
+- Use interfaces to define contracts between packages
+- Place shared utilities in `common` packages
