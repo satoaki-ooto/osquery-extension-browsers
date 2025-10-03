@@ -132,6 +132,8 @@ func getBrowserVariant(userDataDir string) string {
 		return "brave"
 	case strings.Contains(strings.ToLower(userDataDir), "vivaldi"):
 		return "vivaldi"
+	case strings.Contains(strings.ToLower(userDataDir), "comet"):
+		return "comet"
 	default:
 		return "chromium"
 	}

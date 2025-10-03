@@ -56,6 +56,7 @@ func findChromiumPathsForUser(user common.UserInfo) []string {
 		paths = append(paths, filepath.Join(appSupport, "Chromium"))
 		paths = append(paths, filepath.Join(appSupport, "BraveSoftware", "Brave-Browser"))
 		paths = append(paths, filepath.Join(appSupport, "Vivaldi"))
+		paths = append(paths, filepath.Join(appSupport, "Comet"))
 
 	default:
 		// Linux paths for Chromium-based browsers

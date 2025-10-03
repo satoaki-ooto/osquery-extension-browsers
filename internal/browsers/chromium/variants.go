@@ -80,6 +80,12 @@ func DetectBrowserVariants() []BrowserVariant {
 			Process: "Vivaldi",
 		})
 
+		variants = append(variants, BrowserVariant{
+			Name:    "Comet",
+			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Comet")},
+			Process: "Comet",
+		})
+
 	default:
 		variants = append(variants, BrowserVariant{
 			Name:    "Chrome",
