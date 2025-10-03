@@ -63,6 +63,7 @@ func TestFindChromiumPathsForUser(t *testing.T) {
 				"/Users/testuser/Library/Application Support/Chromium",
 				"/Users/testuser/Library/Application Support/BraveSoftware/Brave-Browser",
 				"/Users/testuser/Library/Application Support/Vivaldi",
+				"/Users/testuser/Library/Application Support/Comet",
 			},
 		},
 		{
@@ -220,6 +221,7 @@ func getExpectedChromiumPathsForOS(user common.UserInfo) []string {
 		paths = append(paths, filepath.Join(appSupport, "Chromium"))
 		paths = append(paths, filepath.Join(appSupport, "BraveSoftware", "Brave-Browser"))
 		paths = append(paths, filepath.Join(appSupport, "Vivaldi"))
+		paths = append(paths, filepath.Join(appSupport, "Comet"))
 	default:
 		configDir := filepath.Join(user.HomeDir, ".config")
 		paths = append(paths, filepath.Join(configDir, "google-chrome"))
@@ -247,7 +249,8 @@ func containsDarwinChromiumPath(path string) bool {
 			strings.Contains(path, "Edge") ||
 			strings.Contains(path, "Chromium") ||
 			strings.Contains(path, "Brave") ||
-			strings.Contains(path, "Vivaldi"))
+			strings.Contains(path, "Vivaldi") ||
+			strings.Contains(path, "Comet"))
 }
 
 func containsLinuxChromiumPath(path string) bool {
