@@ -4,5 +4,25 @@
     "Go": {
       "command": "gopls"
     }
+  },
+  "mcp": {
+    "container-use": {
+      "type": "stdio",
+      "command": "cu",
+      "args": ["stdio"],
+      "env": {},
+      "disabled": false
+    },
+    "serena": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ],
+      "disabled": false
+    }
   }
 }
