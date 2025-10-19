@@ -8,5 +8,30 @@
         "bash": true
       }
     }
+  },
+  "mcp": {
+    "container-use": {
+      "type": "local",
+      "command": ["cu", "stdio"],
+      "enabled": true
+    },
+    "serena": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ]
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "deepwiki": {
+      "type": "remote",
+      "url": "https://mcp.deepwiki.com/mcp"
+    }
   }
 }
