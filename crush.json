@@ -9,9 +9,7 @@
     "container-use": {
       "type": "stdio",
       "command": "cu",
-      "args": ["stdio"],
-      "env": {},
-      "disabled": false
+      "args": ["stdio"]
     },
     "serena": {
       "type": "stdio",
@@ -21,8 +19,15 @@
         "git+https://github.com/oraios/serena",
         "serena",
         "start-mcp-server"
-      ],
-      "disabled": false
+      ]
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp"
     }
   }
 }
