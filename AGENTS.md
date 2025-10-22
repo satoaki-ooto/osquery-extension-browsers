@@ -4,7 +4,7 @@
 
 ```bash
 # Build the extension
-go build -o osquery-browser-history
+make build-current
 
 # Run all tests
 go test ./...
