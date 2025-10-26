@@ -16,6 +16,7 @@ import (
 
 	"osquery-extension-browsers/internal/browsers/chromium"
 	"osquery-extension-browsers/internal/browsers/firefox"
+	"osquery-extension-browsers/internal/diff_table"
 )
 
 var debugMode bool
@@ -28,6 +29,7 @@ func main() {
 		log.SetOutput(io.MultiWriter(os.Stdout, logFile))
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log.Println("=== Starting browser extension with periodic diff support ===")
 
 	socket := flag.String("socket", "", "Path to osquery socket file")
 	timeout := flag.Int("timeout", 60, "Seconds to wait for autoloaded extensions")
@@ -82,10 +84,30 @@ func main() {
 		log.Fatalf("Failed to create extension after %d attempts: %v", *retryAttempts, err)
 	}
 
-	debugLog("Registering browser history table plugin...")
+	debugLog("Registering browser history table plugins...")
+	
+	// Register the standard browser history table
 	browserHistoryTable := browserHistoryTablePlugin()
 	server.RegisterPlugin(browserHistoryTable)
-	debugLog("✓ Plugin registered successfully")
+	debugLog("✓ Standard browser_history table registered")
+
+	// Register the periodic diff table
+	diffTable, err := diff_table.New()
+	if err != nil {
+		log.Printf("Failed to create diff table: %v", err)
+	} else {
+		// Register the diff table plugin
+		diffTablePlugin := table.NewPlugin(
+			"browser_history_diff",
+			diffTable.Columns(),
+			diffTable.Generate,
+		)
+		server.RegisterPlugin(diffTablePlugin)
+		debugLog("✓ browser_history_diff table registered")
+
+		// Ensure the diff table is properly closed on shutdown
+		defer diffTable.Close()
+	}
 
 	// Setup signal handling
 	sigc := make(chan os.Signal, 1)

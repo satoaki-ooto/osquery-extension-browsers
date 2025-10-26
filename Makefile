@@ -7,14 +7,13 @@ GOOS ?= $(shell go env GOOS)
 GOARCH ?= $(shell go env GOARCH)
 
 # Build the extension
-build:
-	go build -o $(NAME) $(BUILD_PATH)/main.go
+build: clean cache-clean build-current
 
 # Build for all supported platforms
 build-all: build-linux build-darwin build-windows
 
 # Build for current supported platforms
-build-current: build-linux build-darwin-arm64 build-windows-amd64
+build-current: build-linux-amd64 build-darwin-arm64 build-windows-amd64
 
 # Build for Linux
 build-linux: build-linux-amd64 build-linux-arm64
