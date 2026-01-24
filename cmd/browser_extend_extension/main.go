@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 
 	"osquery-extension-browsers/internal/browsers/chromium"
 	"osquery-extension-browsers/internal/browsers/firefox"
+	"osquery-extension-browsers/internal/browsers/common"
 )
 
 var debugMode bool
@@ -112,7 +114,7 @@ func debugLog(format string, v ...interface{}) {
 	}
 }
 
-// waitForSocket waits for the osquery socket to be available
+// waitForSocket waits for osquery socket to be available
 func waitForSocket(socketPath string, maxAttempts, delaySeconds int) error {
 	debugLog("Waiting for socket: %s", socketPath)
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
@@ -133,18 +135,37 @@ func waitForSocket(socketPath string, maxAttempts, delaySeconds int) error {
 func browserHistoryTablePlugin() *table.Plugin {
 	columns := []table.ColumnDefinition{
 		table.TextColumn("time"),
+		table.BigIntColumn("visit_time"),     // Unix timestamp for filtering
 		table.TextColumn("title"),
 		table.TextColumn("url"),
 		table.TextColumn("profile"),
 		table.TextColumn("browser_type"),
+		table.TextColumn("browser_variant"),
+		table.IntegerColumn("visit_count"),
 	}
 
 	return table.NewPlugin("browser_history", columns, generateBrowserHistory)
 }
 
-// generateBrowserHistory generates the browser history data for the table
+// generateBrowserHistory generates browser history data for the table
 func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
 	var results []map[string]string
+
+	// Parse query context for optional filters
+	var opts []common.HistoryOption
+
+	// Check for visit_time constraint for incremental collection
+	if constraints, ok := queryContext.Constraints["visit_time"]; ok {
+		for _, constraint := range constraints {
+			if constraint.Operator == table.OperatorGreaterThan {
+				if timestamp, ok := constraint.Expression.(int64); ok {
+					sinceTime := time.Unix(timestamp, 0)
+					opts = append(opts, common.WithSince(sinceTime))
+					debugLog("Applying incremental filter: visit_time > %d", timestamp)
+				}
+			}
+		}
+	}
 
 	// Find Chromium profiles
 	chromiumProfiles, err := chromium.FindProfiles()
@@ -153,7 +174,7 @@ func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext
 	} else {
 		// Get history for each Chromium profile
 		for _, profile := range chromiumProfiles {
-			historyEntries, err := chromium.FindHistory(profile)
+			historyEntries, err := chromium.FindHistory(profile, opts...)
 			if err != nil {
 				log.Printf("Failed to find Chromium history for profile %s: %v", profile.ID, err)
 				continue
@@ -163,9 +184,10 @@ func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext
 			for _, entry := range historyEntries {
 				results = append(results, map[string]string{
 					"time":            entry.VisitTime.Format("2006-01-02 15:04:05"),
+					"visit_time":      strconv.FormatInt(entry.VisitTime.Unix(), 10),
 					"url":             entry.URL,
 					"title":           entry.Title,
-					"visit_count":     string(rune(entry.VisitCount)),
+					"visit_count":     strconv.Itoa(entry.VisitCount),
 					"profile":         entry.ProfileID,
 					"browser_type":    entry.BrowserType,
 					"browser_variant": entry.BrowserVariant,
@@ -181,7 +203,7 @@ func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext
 	} else {
 		// Get history for each Firefox profile
 		for _, profile := range firefoxProfiles {
-			historyEntries, err := firefox.FindHistory(profile)
+			historyEntries, err := firefox.FindHistory(profile, opts...)
 			if err != nil {
 				log.Printf("Failed to find Firefox history for profile %s: %v", profile.ID, err)
 				continue
@@ -191,9 +213,10 @@ func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext
 			for _, entry := range historyEntries {
 				results = append(results, map[string]string{
 					"time":            entry.VisitTime.Format("2006-01-02 15:04:05"),
+					"visit_time":      strconv.FormatInt(entry.VisitTime.Unix(), 10),
 					"url":             entry.URL,
 					"title":           entry.Title,
-					"visit_count":     string(rune(entry.VisitCount)),
+					"visit_count":     strconv.Itoa(entry.VisitCount),
 					"profile":         entry.ProfileID,
 					"browser_type":    entry.BrowserType,
 					"browser_variant": entry.BrowserVariant,

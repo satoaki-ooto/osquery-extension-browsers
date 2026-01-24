@@ -23,9 +23,11 @@ import (
 //   - If places.sqlite exists but is invalid: returns error from database operations
 //   - If places.sqlite exists and is valid: returns history entries or database errors
 //
+// Optional parameters can be provided to filter results (e.g., by time or limit).
+//
 // This graceful handling aligns with the robust error handling pattern used throughout
 // the extension, where individual profile failures don't stop overall processing.
-func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
+func FindHistory(profile common.Profile, opts ...common.HistoryOption) ([]common.HistoryEntry, error) {
 	historyDBPath := getHistoryDBPath(profile.Path)
 
 	// Check if places.sqlite exists before attempting to open it
@@ -34,23 +36,38 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 		return []common.HistoryEntry{}, nil
 	}
 
-	// Open the SQLite database
+	// Open SQLite database
 	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro&immutable=1", historyDBPath))
 	if err != nil {
 		return nil, err
 	}
 	defer db.Close()
 
-	// Query the history entries
-	// We're using a simple query to get the most recent visits
+	// Apply options
+	options := common.ApplyHistoryOptions(opts)
+
+	// Build query with optional filters
 	query := `
 		SELECT p.id, p.url, p.title, h.visit_date, p.visit_count
 		FROM moz_places p
 		JOIN moz_historyvisits h ON p.id = h.place_id
-		ORDER BY h.visit_date DESC
 	`
 
-	rows, err := db.Query(query)
+	args := []interface{}{}
+	if options.Since != nil {
+		unixTime := toUnixTime(*options.Since)
+		query += ` WHERE h.visit_date > ?`
+		args = append(args, unixTime)
+	}
+
+	query += ` ORDER BY h.visit_date DESC`
+
+	if options.Limit > 0 {
+		query += ` LIMIT ?`
+		args = append(args, options.Limit)
+	}
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +108,7 @@ func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
 	return historyEntries, nil
 }
 
-// getHistoryDBPath returns the path to the history database for a given profile
+// getHistoryDBPath returns path to history database for a given profile
 func getHistoryDBPath(profilePath string) string {
 	return filepath.Join(profilePath, "places.sqlite")
 }
@@ -105,4 +122,15 @@ func parseUnixTime(unixTime int64) time.Time {
 
 	// Convert microseconds to nanoseconds for time.Unix
 	return time.Unix(0, unixTime*1000)
+}
+
+// toUnixTime converts time.Time to Firefox's timestamp format
+// Firefox's timestamp is in microseconds since Unix epoch (1970-01-01 00:00:00 UTC)
+func toUnixTime(t time.Time) int64 {
+	if t.IsZero() {
+		return 0
+	}
+
+	// Convert nanoseconds to microseconds
+	return t.UnixNano() / 1000
 }
