@@ -12,17 +12,19 @@ import (
 	"time"
 
 	"github.com/osquery/osquery-go"
-	"github.com/osquery/osquery-go/plugin/table"
 
-	"osquery-extension-browsers/internal/browsers/chromium"
-	"osquery-extension-browsers/internal/browsers/firefox"
+	"osquery-extension-browsers/internal/osquerytables"
 )
 
 var debugMode bool
 
 func main() {
 	// Setup logging to both stdout and file
-	logFile, err := os.OpenFile("/tmp/browser_extend_extension.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile(
+		"/tmp/browser_extend_extension.log",
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND,
+		0o644,
+	)
 	if err == nil {
 		defer logFile.Close()
 		log.SetOutput(io.MultiWriter(os.Stdout, logFile))
@@ -42,7 +44,9 @@ func main() {
 
 	if debugMode {
 		log.Println("=== Extension Starting (Debug Mode) ===")
-		log.Printf("Configuration: socket=%s, timeout=%d, interval=%d, retry=%d, retry-delay=%d, verbose=%v, debug=%v",
+		log.Printf(
+			"Configuration: socket=%s, timeout=%d, interval=%d, retry=%d, "+
+				"retry-delay=%d, verbose=%v, debug=%v",
 			*socket, *timeout, *interval, *retryAttempts, *retryDelay, *verbose, *debug)
 	}
 
@@ -82,10 +86,11 @@ func main() {
 		log.Fatalf("Failed to create extension after %d attempts: %v", *retryAttempts, err)
 	}
 
-	debugLog("Registering browser history table plugin...")
-	browserHistoryTable := browserHistoryTablePlugin()
-	server.RegisterPlugin(browserHistoryTable)
-	debugLog("✓ Plugin registered successfully")
+	debugLog("Registering browser table plugins...")
+	server.RegisterPlugin(osquerytables.ProfilesPlugin())
+	server.RegisterPlugin(osquerytables.VisitObservationsPlugin())
+	server.RegisterPlugin(osquerytables.HistoryPagesPlugin())
+	debugLog("✓ Plugins registered successfully")
 
 	// Setup signal handling
 	sigc := make(chan os.Signal, 1)
@@ -121,86 +126,15 @@ func waitForSocket(socketPath string, maxAttempts, delaySeconds int) error {
 			debugLog("✓ Socket found on attempt %d/%d", attempt, maxAttempts)
 			return nil
 		}
-		debugLog("Socket not found (attempt %d/%d), waiting %d seconds...", attempt, maxAttempts, delaySeconds)
+		debugLog(
+			"Socket not found (attempt %d/%d), waiting %d seconds...",
+			attempt,
+			maxAttempts,
+			delaySeconds,
+		)
 		if attempt < maxAttempts {
 			time.Sleep(time.Duration(delaySeconds) * time.Second)
 		}
 	}
 	return fmt.Errorf("socket %s not found after %d attempts", socketPath, maxAttempts)
-}
-
-// browserHistoryTablePlugin creates a table plugin for browser history
-func browserHistoryTablePlugin() *table.Plugin {
-	columns := []table.ColumnDefinition{
-		table.TextColumn("time"),
-		table.TextColumn("title"),
-		table.TextColumn("url"),
-		table.TextColumn("profile"),
-		table.TextColumn("browser_type"),
-	}
-
-	return table.NewPlugin("browser_history", columns, generateBrowserHistory)
-}
-
-// generateBrowserHistory generates the browser history data for the table
-func generateBrowserHistory(ctx context.Context, queryContext table.QueryContext) ([]map[string]string, error) {
-	var results []map[string]string
-
-	// Find Chromium profiles
-	chromiumProfiles, err := chromium.FindProfiles()
-	if err != nil {
-		log.Printf("Failed to find Chromium profiles: %v", err)
-	} else {
-		// Get history for each Chromium profile
-		for _, profile := range chromiumProfiles {
-			historyEntries, err := chromium.FindHistory(profile)
-			if err != nil {
-				log.Printf("Failed to find Chromium history for profile %s: %v", profile.ID, err)
-				continue
-			}
-
-			// Add history entries to results
-			for _, entry := range historyEntries {
-				results = append(results, map[string]string{
-					"time":            entry.VisitTime.Format("2006-01-02 15:04:05"),
-					"url":             entry.URL,
-					"title":           entry.Title,
-					"visit_count":     string(rune(entry.VisitCount)),
-					"profile":         entry.ProfileID,
-					"browser_type":    entry.BrowserType,
-					"browser_variant": entry.BrowserVariant,
-				})
-			}
-		}
-	}
-
-	// Find Firefox profiles
-	firefoxProfiles, err := firefox.FindProfiles()
-	if err != nil {
-		log.Printf("Failed to find Firefox profiles: %v", err)
-	} else {
-		// Get history for each Firefox profile
-		for _, profile := range firefoxProfiles {
-			historyEntries, err := firefox.FindHistory(profile)
-			if err != nil {
-				log.Printf("Failed to find Firefox history for profile %s: %v", profile.ID, err)
-				continue
-			}
-
-			// Add history entries to results
-			for _, entry := range historyEntries {
-				results = append(results, map[string]string{
-					"time":            entry.VisitTime.Format("2006-01-02 15:04:05"),
-					"url":             entry.URL,
-					"title":           entry.Title,
-					"visit_count":     string(rune(entry.VisitCount)),
-					"profile":         entry.ProfileID,
-					"browser_type":    entry.BrowserType,
-					"browser_variant": entry.BrowserVariant,
-				})
-			}
-		}
-	}
-
-	return results, nil
 }

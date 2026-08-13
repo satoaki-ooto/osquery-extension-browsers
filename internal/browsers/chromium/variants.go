@@ -16,104 +16,128 @@ type BrowserVariant struct {
 // DetectBrowserVariants returns a list of detected Chromium-based browser variants
 func DetectBrowserVariants() []BrowserVariant {
 	var variants []BrowserVariant
+	homeDirectory := os.Getenv("HOME")
+	localAppData := os.Getenv("LOCALAPPDATA")
 
 	switch runtime.GOOS {
 	case "windows":
 		variants = append(variants, BrowserVariant{
-			Name:    "Chrome",
-			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "User Data")},
+			Name:    "chrome",
+			Paths:   []string{filepath.Join(localAppData, "Google", "Chrome", "User Data")},
 			Process: "chrome.exe",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Edge",
-			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "User Data")},
+			Name:    "edge",
+			Paths:   []string{filepath.Join(localAppData, "Microsoft", "Edge", "User Data")},
 			Process: "msedge.exe",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Chromium",
-			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "Chromium", "User Data")},
+			Name:    "chromium",
+			Paths:   []string{filepath.Join(localAppData, "Chromium", "User Data")},
 			Process: "chromium.exe",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Brave",
-			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "BraveSoftware", "Brave-Browser", "User Data")},
+			Name: "brave",
+			Paths: []string{filepath.Join(
+				localAppData,
+				"BraveSoftware",
+				"Brave-Browser",
+				"User Data",
+			)},
 			Process: "brave.exe",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Vivaldi",
-			Paths:   []string{filepath.Join(os.Getenv("LOCALAPPDATA"), "Vivaldi", "User Data")},
+			Name:    "vivaldi",
+			Paths:   []string{filepath.Join(localAppData, "Vivaldi", "User Data")},
 			Process: "vivaldi.exe",
 		})
 
 	case "darwin":
 		variants = append(variants, BrowserVariant{
-			Name:    "Chrome",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Google", "Chrome")},
+			Name: "chrome",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"Google",
+				"Chrome",
+			)},
 			Process: "Google Chrome",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Edge",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Microsoft Edge")},
+			Name: "edge",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"Microsoft Edge",
+			)},
 			Process: "Microsoft Edge",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Chromium",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Chromium")},
+			Name:    "chromium",
+			Paths:   []string{filepath.Join(homeDirectory, "Library", "Application Support", "Chromium")},
 			Process: "Chromium",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Brave",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "BraveSoftware", "Brave-Browser")},
+			Name: "brave",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"BraveSoftware",
+				"Brave-Browser",
+			)},
 			Process: "Brave Browser",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Vivaldi",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Vivaldi")},
+			Name:    "vivaldi",
+			Paths:   []string{filepath.Join(homeDirectory, "Library", "Application Support", "Vivaldi")},
 			Process: "Vivaldi",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Comet",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Comet")},
+			Name:    "comet",
+			Paths:   []string{filepath.Join(homeDirectory, "Library", "Application Support", "Comet")},
 			Process: "Comet",
 		})
 
 	default:
 		variants = append(variants, BrowserVariant{
-			Name:    "Chrome",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "google-chrome")},
+			Name:    "chrome",
+			Paths:   []string{filepath.Join(homeDirectory, ".config", "google-chrome")},
 			Process: "google-chrome",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Edge",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "microsoft-edge")},
+			Name:    "edge",
+			Paths:   []string{filepath.Join(homeDirectory, ".config", "microsoft-edge")},
 			Process: "microsoft-edge",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Chromium",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "chromium")},
+			Name:    "chromium",
+			Paths:   []string{filepath.Join(homeDirectory, ".config", "chromium")},
 			Process: "chromium",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Brave",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "BraveSoftware", "Brave-Browser")},
+			Name:    "brave",
+			Paths:   []string{filepath.Join(homeDirectory, ".config", "BraveSoftware", "Brave-Browser")},
 			Process: "brave",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Vivaldi",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".config", "vivaldi")},
+			Name:    "vivaldi",
+			Paths:   []string{filepath.Join(homeDirectory, ".config", "vivaldi")},
 			Process: "vivaldi",
 		})
 	}

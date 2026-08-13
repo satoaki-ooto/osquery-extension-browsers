@@ -1,131 +1,208 @@
 package chromium
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 
 	"osquery-extension-browsers/internal/browsers/common"
 )
 
-// FindChromiumPaths returns the paths to Chromium-based browser data directories for all users
-func FindChromiumPaths() []string {
+const chromiumFamily = "chromium"
+
+type rootCandidate struct {
+	variant string
+	path    string
+}
+
+type rootScanResult struct {
+	roots []common.BrowserRoot
+	err   error
+}
+
+// FindRoots returns existing Chromium-family data roots with their owner and variant.
+func FindRoots() ([]common.BrowserRoot, error) {
 	users, err := common.UsersFromContext()
-	if err != nil || len(users) == 0 {
-		return []string{}
+	if err != nil {
+		return nil, err
 	}
 
-	// Filter accessible users
-	var accessibleUsers []common.UserInfo
+	accessibleUsers := make([]common.UserInfo, 0, len(users))
 	for _, user := range users {
 		if user.IsAccessible {
 			accessibleUsers = append(accessibleUsers, user)
 		}
 	}
 
-	if len(accessibleUsers) == 0 {
+	roots, err := scanUsersWithWorkerPool(accessibleUsers, findChromiumRootsForUser)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(roots, func(i, j int) bool {
+		if roots[i].Path == roots[j].Path {
+			return roots[i].OSUserName < roots[j].OSUserName
+		}
+		return roots[i].Path < roots[j].Path
+	})
+	return roots, nil
+}
+
+// FindChromiumPaths preserves the path-only discovery API for existing callers.
+func FindChromiumPaths() []string {
+	roots, err := FindRoots()
+	if err != nil {
 		return []string{}
 	}
 
-	// Use worker pool for better performance and resource management
-	allPaths := scanUsersWithWorkerPool(accessibleUsers, findChromiumPathsForUser)
-
-	return allPaths
+	paths := make([]string, 0, len(roots))
+	for _, root := range roots {
+		paths = append(paths, root.Path)
+	}
+	return paths
 }
 
-// findChromiumPathsForUser returns Chromium-based browser paths for a specific user
-func findChromiumPathsForUser(user common.UserInfo) []string {
-	var paths []string
+func findChromiumRootsForUser(user common.UserInfo) ([]common.BrowserRoot, error) {
+	if !user.IsAccessible {
+		return []common.BrowserRoot{}, nil
+	}
 
+	candidates := chromiumRootCandidates(user)
+	roots := make([]common.BrowserRoot, 0, len(candidates))
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate.path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf(
+				"inspect %s root %q for OS user %q: %w",
+				candidate.variant,
+				candidate.path,
+				user.Username,
+				err,
+			)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf(
+				"inspect %s root %q for OS user %q: path is not a directory",
+				candidate.variant,
+				candidate.path,
+				user.Username,
+			)
+		}
+		roots = append(roots, common.BrowserRoot{
+			Path:           candidate.path,
+			OSUserName:     user.Username,
+			BrowserFamily:  chromiumFamily,
+			BrowserVariant: candidate.variant,
+		})
+	}
+
+	return roots, nil
+}
+
+func findChromiumPathsForUser(user common.UserInfo) []string {
+	roots, err := findChromiumRootsForUser(user)
+	if err != nil {
+		return []string{}
+	}
+	paths := make([]string, 0, len(roots))
+	for _, root := range roots {
+		paths = append(paths, root.Path)
+	}
+	return paths
+}
+
+func chromiumRootCandidates(user common.UserInfo) []rootCandidate {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows paths for Chromium-based browsers
 		localAppData := filepath.Join(user.HomeDir, "AppData", "Local")
-		paths = append(paths, filepath.Join(localAppData, "Google", "Chrome", "User Data"))
-		paths = append(paths, filepath.Join(localAppData, "Microsoft", "Edge", "User Data"))
-		paths = append(paths, filepath.Join(localAppData, "Chromium", "User Data"))
-		paths = append(paths, filepath.Join(localAppData, "BraveSoftware", "Brave-Browser", "User Data"))
-		paths = append(paths, filepath.Join(localAppData, "Vivaldi", "User Data"))
-
+		return []rootCandidate{
+			{variant: "chrome", path: filepath.Join(localAppData, "Google", "Chrome", "User Data")},
+			{variant: "edge", path: filepath.Join(localAppData, "Microsoft", "Edge", "User Data")},
+			{variant: "chromium", path: filepath.Join(localAppData, "Chromium", "User Data")},
+			{
+				variant: "brave",
+				path: filepath.Join(
+					localAppData,
+					"BraveSoftware",
+					"Brave-Browser",
+					"User Data",
+				),
+			},
+			{variant: "vivaldi", path: filepath.Join(localAppData, "Vivaldi", "User Data")},
+		}
 	case "darwin":
-		// macOS paths for Chromium-based browsers
-		appSupport := filepath.Join(user.HomeDir, "Library", "Application Support")
-		paths = append(paths, filepath.Join(appSupport, "Google", "Chrome"))
-		paths = append(paths, filepath.Join(appSupport, "Microsoft Edge"))
-		paths = append(paths, filepath.Join(appSupport, "Chromium"))
-		paths = append(paths, filepath.Join(appSupport, "BraveSoftware", "Brave-Browser"))
-		paths = append(paths, filepath.Join(appSupport, "Vivaldi"))
-		paths = append(paths, filepath.Join(appSupport, "Comet"))
-
+		applicationSupport := filepath.Join(user.HomeDir, "Library", "Application Support")
+		return []rootCandidate{
+			{variant: "chrome", path: filepath.Join(applicationSupport, "Google", "Chrome")},
+			{variant: "edge", path: filepath.Join(applicationSupport, "Microsoft Edge")},
+			{variant: "chromium", path: filepath.Join(applicationSupport, "Chromium")},
+			{variant: "brave", path: filepath.Join(applicationSupport, "BraveSoftware", "Brave-Browser")},
+			{variant: "vivaldi", path: filepath.Join(applicationSupport, "Vivaldi")},
+			{variant: "comet", path: filepath.Join(applicationSupport, "Comet")},
+		}
 	default:
-		// Linux paths for Chromium-based browsers
-		configDir := filepath.Join(user.HomeDir, ".config")
-		paths = append(paths, filepath.Join(configDir, "google-chrome"))
-		paths = append(paths, filepath.Join(configDir, "microsoft-edge"))
-		paths = append(paths, filepath.Join(configDir, "chromium"))
-		paths = append(paths, filepath.Join(configDir, "BraveSoftware", "Brave-Browser"))
-		paths = append(paths, filepath.Join(configDir, "vivaldi"))
-	}
-
-	// Filter paths that exist
-	var existingPaths []string
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			existingPaths = append(existingPaths, path)
+		configDirectory := filepath.Join(user.HomeDir, ".config")
+		return []rootCandidate{
+			{variant: "chrome", path: filepath.Join(configDirectory, "google-chrome")},
+			{variant: "edge", path: filepath.Join(configDirectory, "microsoft-edge")},
+			{variant: "chromium", path: filepath.Join(configDirectory, "chromium")},
+			{variant: "brave", path: filepath.Join(configDirectory, "BraveSoftware", "Brave-Browser")},
+			{variant: "vivaldi", path: filepath.Join(configDirectory, "vivaldi")},
 		}
 	}
-
-	return existingPaths
 }
 
-// scanUsersWithWorkerPool scans users concurrently using a worker pool pattern
-func scanUsersWithWorkerPool(users []common.UserInfo, scanFunc func(common.UserInfo) []string) []string {
-	// Determine optimal number of workers based on system and user count
-	maxWorkers := runtime.NumCPU()
-	if len(users) < maxWorkers {
-		maxWorkers = len(users)
-	}
-	if maxWorkers > 10 {
-		maxWorkers = 10 // Cap at 10 to avoid excessive resource usage
+func scanUsersWithWorkerPool(
+	users []common.UserInfo,
+	scan func(common.UserInfo) ([]common.BrowserRoot, error),
+) ([]common.BrowserRoot, error) {
+	if len(users) == 0 {
+		return []common.BrowserRoot{}, nil
 	}
 
-	// Create channels for work distribution
-	userChan := make(chan common.UserInfo, len(users))
-	resultChan := make(chan []string, len(users))
+	workerCount := min(runtime.NumCPU(), len(users), 10)
+	userChannel := make(chan common.UserInfo, len(users))
+	resultChannel := make(chan rootScanResult, len(users))
 
-	// Start workers
-	var wg sync.WaitGroup
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
+	var waitGroup sync.WaitGroup
+	for range workerCount {
+		waitGroup.Add(1)
 		go func() {
-			defer wg.Done()
-			for user := range userChan {
-				paths := scanFunc(user)
-				resultChan <- paths
+			defer waitGroup.Done()
+			for user := range userChannel {
+				roots, err := scan(user)
+				resultChannel <- rootScanResult{roots: roots, err: err}
 			}
 		}()
 	}
 
-	// Send work to workers
 	go func() {
-		defer close(userChan)
+		defer close(userChannel)
 		for _, user := range users {
-			userChan <- user
+			userChannel <- user
 		}
 	}()
 
-	// Close result channel when all workers are done
 	go func() {
-		wg.Wait()
-		close(resultChan)
+		waitGroup.Wait()
+		close(resultChannel)
 	}()
 
-	// Collect results
-	var allPaths []string
-	for paths := range resultChan {
-		allPaths = append(allPaths, paths...)
+	var roots []common.BrowserRoot
+	var firstError error
+	for result := range resultChannel {
+		if result.err != nil && firstError == nil {
+			firstError = result.err
+		}
+		roots = append(roots, result.roots...)
 	}
-
-	return allPaths
+	if firstError != nil {
+		return nil, firstError
+	}
+	return roots, nil
 }

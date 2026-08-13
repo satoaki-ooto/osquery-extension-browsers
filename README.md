@@ -1,6 +1,8 @@
 # Osquery Browser History Extension
 
-An osquery extension that exposes a virtual table to query browser history across Chromium- and Firefox-based browsers on Windows, macOS, and Linux.
+An osquery extension that exposes browser profiles, native visit observations, and
+current page state across Chromium- and Firefox-based browsers on Windows, macOS,
+and Linux.
 
 ## Features
 - Multi-browser support
@@ -8,6 +10,9 @@ An osquery extension that exposes a virtual table to query browser history acros
   - Firefox family: Firefox, ESR, Developer Edition, Nightly (Zen on Linux)
 - Multi-platform: Windows, macOS (Darwin), Linux
 - Multi-profile detection and enumeration
+- Deterministic profile and native-visit observation IDs
+- Read-only live SQLite access with WAL visibility, a bounded busy timeout, and a
+  private snapshot fallback for browser-held locks
 - Utilities: robust process detection, retry logic, timestamp handling
 
 ## Project Layout
@@ -47,10 +52,35 @@ The extension must connect to a running osqueryd/osqueryi via a socket.
 ```bash
 ./osquery-browser-history --socket /path/to/osquery.socket --timeout 3 --interval 3
 ```
-Then, within osquery:
+Then, within osquery, query the three-table visit view:
 ```sql
-SELECT * FROM browser_history LIMIT 10;
+SELECT
+  v.obs_id,
+  v.profile_id,
+  v.native_visit_id,
+  v.visit_time,
+  v.visit_time_us,
+  h.url,
+  h.title,
+  h.title_present,
+  p.browser_variant,
+  p.os_user_name,
+  p.profile_directory,
+  p.profile_display_name,
+  p.profile_display_name_present,
+  p.profile_account,
+  p.profile_account_present
+FROM browser_visit_observations AS v
+JOIN browser_history_pages AS h
+  ON h.profile_id = v.profile_id
+ AND h.native_url_id = v.native_url_id
+JOIN browser_profiles AS p
+  ON p.profile_id = v.profile_id
+LIMIT 10;
 ```
+
+For scheduled differential collection, keep the query name and SQL stable, do not
+enable snapshot mode, and set `removed` to `false`.
 
 ## Supported Data Sources
 - Chromium: SQLite History databases per profile

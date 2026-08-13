@@ -16,80 +16,73 @@ type BrowserVariant struct {
 // DetectBrowserVariants returns a list of detected Firefox-based browser variants
 func DetectBrowserVariants() []BrowserVariant {
 	var variants []BrowserVariant
+	appData := os.Getenv("APPDATA")
+	homeDirectory := os.Getenv("HOME")
 
 	switch runtime.GOOS {
 	case "windows":
 		variants = append(variants, BrowserVariant{
-			Name:    "Firefox",
-			Paths:   []string{filepath.Join(os.Getenv("APPDATA"), "Mozilla", "Firefox", "Profiles")},
-			Process: "firefox.exe",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Developer Edition",
-			Paths:   []string{filepath.Join(os.Getenv("APPDATA"), "Mozilla", "Firefox", "Profiles")},
-			Process: "firefox.exe",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Nightly",
-			Paths:   []string{filepath.Join(os.Getenv("APPDATA"), "Mozilla", "Firefox", "Profiles")},
+			Name:    "firefox",
+			Paths:   []string{filepath.Join(appData, "Mozilla", "Firefox", "Profiles")},
 			Process: "firefox.exe",
 		})
 
 	case "darwin":
 		variants = append(variants, BrowserVariant{
-			Name:    "Firefox",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Firefox", "Profiles")},
+			Name: "firefox",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"Firefox",
+				"Profiles",
+			)},
 			Process: "Firefox",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Developer Edition",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Firefox", "Profiles")},
-			Process: "Firefox Developer Edition",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Nightly",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Firefox", "Profiles")},
-			Process: "Firefox Nightly",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Zen Browser",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "zen", "Profiles")},
+			Name: "zen",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"zen",
+				"Profiles",
+			)},
 			Process: "zen",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Floorp",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), "Library", "Application Support", "Floorp", "Profiles")},
+			Name: "floorp",
+			Paths: []string{filepath.Join(
+				homeDirectory,
+				"Library",
+				"Application Support",
+				"Floorp",
+				"Profiles",
+			)},
 			Process: "floorp",
 		})
 
 	default:
 		variants = append(variants, BrowserVariant{
-			Name:    "Firefox",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox")},
+			Name:    "firefox",
+			Paths:   []string{filepath.Join(homeDirectory, ".mozilla", "firefox")},
 			Process: "firefox",
 		})
 
 		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Developer Edition",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox")},
-			Process: "firefox",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Firefox Nightly",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".mozilla", "firefox")},
-			Process: "firefox",
-		})
-
-		variants = append(variants, BrowserVariant{
-			Name:    "Zen Browser",
-			Paths:   []string{filepath.Join(os.Getenv("HOME"), ".zen"), filepath.Join(os.Getenv("HOME"), ".var", "app", "app.zen_browser.zen", ".zen")},
+			Name: "zen",
+			Paths: []string{
+				filepath.Join(homeDirectory, ".zen"),
+				filepath.Join(
+					homeDirectory,
+					".var",
+					"app",
+					"app.zen_browser.zen",
+					".zen",
+				),
+			},
 			Process: "zen",
 		})
 	}

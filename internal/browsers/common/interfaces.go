@@ -1,71 +1,51 @@
 package common
 
-import (
-	"time"
-)
-
-// Browser represents a web browser with its associated data
-type Browser interface {
-	// Name returns the name of the browser
-	Name() string
-
-	// Variant returns the specific variant of the browser (e.g., Chrome, Edge, Chromium)
-	Variant() string
-
-	// ProfileSupport returns whether this browser supports profiles
-	ProfileSupport() bool
-
-	// FindProfiles discovers all profiles for this browser
-	FindProfiles() ([]Profile, error)
-
-	// FindHistory discovers history entries for a specific profile
-	FindHistory(profile Profile) ([]HistoryEntry, error)
+// BrowserRoot is a browser data root owned by one operating-system user.
+type BrowserRoot struct {
+	Path           string
+	OSUserName     string
+	BrowserFamily  string
+	BrowserVariant string
 }
 
-// Profile represents a browser profile with its associated data
+// Profile is the current inventory and metadata for one machine-local browser profile.
 type Profile struct {
-	// ID is the unique identifier for the profile
-	ID string
-
-	// Name is the display name of the profile
-	Name string
-
-	// Path is the file system path to the profile directory
-	Path string
-
-	// Email is the email address associated with the profile (if available)
-	Email string
-
-	// BrowserType is the type of browser this profile belongs to
-	BrowserType string
-
-	// BrowserVariant is the specific variant of the browser
-	BrowserVariant string
+	ProfileID          string
+	BrowserFamily      string
+	BrowserVariant     string
+	OSUserName         string
+	Directory          string
+	Path               string
+	DisplayName        string
+	DisplayNamePresent bool
+	Account            string
+	AccountPresent     bool
 }
 
-// HistoryEntry represents a single entry in the browser history
-type HistoryEntry struct {
-	// ID is the unique identifier for the history entry
-	ID int64
-
-	// URL is the URL of the visited page
-	URL string
-
-	// Title is the title of the visited page
-	Title string
-
-	// VisitTime is the time when the page was visited
-	VisitTime time.Time
-
-	// VisitCount is the number of times the page was visited
-	VisitCount int
-
-	// ProfileID is the ID of the profile this entry belongs to
-	ProfileID string
-
-	// BrowserType is the type of browser this entry belongs to
-	BrowserType string
-
-	// BrowserVariant is the specific variant of the browser
+// VisitObservation is the stable portion of one native browser visit row.
+type VisitObservation struct {
+	ObservationID  string
+	ProfileID      string
+	BrowserFamily  string
 	BrowserVariant string
+	NativeVisitID  int64
+	NativeURLID    int64
+	VisitTime      int64
+	VisitTimeUS    int64
+}
+
+// HistoryPage is the browser's current aggregate state for one URL/page row.
+type HistoryPage struct {
+	ProfileID            string
+	NativeURLID          int64
+	BrowserFamily        string
+	BrowserVariant       string
+	URL                  string
+	Title                string
+	TitlePresent         bool
+	VisitCount           int64
+	LastVisitTime        int64
+	LastVisitTimePresent bool
+	Hidden               int64
+	HiddenPresent        bool
 }

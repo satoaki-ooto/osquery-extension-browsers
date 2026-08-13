@@ -2,139 +2,121 @@ package chromium
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
-	"strings"
+	"sort"
 
 	"osquery-extension-browsers/internal/browsers/common"
 )
 
-// ProfileInfo represents the structure of the Preferences file
-type ProfileInfo struct {
-	Name string `json:"name"`
+var profileDirectoryPattern = regexp.MustCompile(`^(Default|Profile \d+)$`)
+
+type localState struct {
+	Profile struct {
+		InfoCache map[string]localStateProfile `json:"info_cache"`
+	} `json:"profile"`
 }
 
-// findProfileDirectories returns a list of profile directories within the user data directory
-func findProfileDirectories(userDataDir string) ([]string, error) {
-	var profileDirs []string
-
-	// Check if the user data directory exists
-	if _, err := os.Stat(userDataDir); os.IsNotExist(err) {
-		return profileDirs, err
-	}
-
-	// Read the contents of the user data directory
-	entries, err := ioutil.ReadDir(userDataDir)
-	if err != nil {
-		return profileDirs, err
-	}
-
-	// Regular expression to match profile directories
-	profileDirRegex := regexp.MustCompile(`^(Default|Profile \d+)$`)
-
-	for _, entry := range entries {
-		if entry.IsDir() && profileDirRegex.MatchString(entry.Name()) {
-			profileDirs = append(profileDirs, filepath.Join(userDataDir, entry.Name()))
-		}
-	}
-
-	return profileDirs, nil
+type localStateProfile struct {
+	Name     string `json:"name"`
+	UserName string `json:"user_name"`
 }
 
-// readProfileInfo reads profile information from the Preferences file
-func readProfileInfo(profileDir string) (common.Profile, error) {
-	profile := common.Profile{
-		Path: profileDir,
-	}
-
-	// Set the profile ID based on the directory name
-	dirName := filepath.Base(profileDir)
-	profile.ID = dirName
-
-	// Set the profile name based on the directory name
-	if dirName == "Default" {
-		profile.Name = "Default"
-	} else {
-		profile.Name = dirName
-	}
-
-	// Read the Preferences file
-	preferencesPath := filepath.Join(profileDir, "Preferences")
-	if _, err := os.Stat(preferencesPath); os.IsNotExist(err) {
-		// If Preferences file doesn't exist, return the basic profile info
-		return profile, nil
-	}
-
-	data, err := ioutil.ReadFile(preferencesPath)
-	if err != nil {
-		return profile, err
-	}
-
-	var profileInfo ProfileInfo
-	if err := json.Unmarshal(data, &profileInfo); err != nil {
-		return profile, err
-	}
-
-	// Update the profile name if it exists in the Preferences file
-	if profileInfo.Name != "" {
-		profile.Name = profileInfo.Name
-	}
-
-	return profile, nil
-}
-
-// FindProfiles discovers all profiles for Chromium-based browsers
+// FindProfiles discovers all current Chromium-family profiles.
 func FindProfiles() ([]common.Profile, error) {
+	roots, err := FindRoots()
+	if err != nil {
+		return nil, fmt.Errorf("find Chromium roots: %w", err)
+	}
+
 	var profiles []common.Profile
-
-	// Get the paths to Chromium-based browser data directories
-	chromiumPaths := FindChromiumPaths()
-
-	for _, userDataDir := range chromiumPaths {
-		// Find profile directories within each user data directory
-		profileDirs, err := findProfileDirectories(userDataDir)
+	for _, root := range roots {
+		rootProfiles, err := FindProfilesForRoot(root)
 		if err != nil {
-			// If we can't read a directory, continue with the next one
+			return nil, err
+		}
+		profiles = append(profiles, rootProfiles...)
+	}
+
+	sort.Slice(profiles, func(i, j int) bool {
+		return profiles[i].ProfileID < profiles[j].ProfileID
+	})
+	return profiles, nil
+}
+
+// FindProfilesForRoot reads profile inventory and Local State once for one browser root.
+func FindProfilesForRoot(root common.BrowserRoot) ([]common.Profile, error) {
+	entries, err := os.ReadDir(root.Path)
+	if os.IsNotExist(err) {
+		return []common.Profile{}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s root %q: %w", root.BrowserVariant, root.Path, err)
+	}
+
+	metadata, err := readLocalState(root)
+	if err != nil {
+		return nil, err
+	}
+
+	profiles := make([]common.Profile, 0)
+	for _, entry := range entries {
+		if !entry.IsDir() || !profileDirectoryPattern.MatchString(entry.Name()) {
 			continue
 		}
 
-		// Read profile information for each profile directory
-		for _, profileDir := range profileDirs {
-			profile, err := readProfileInfo(profileDir)
-			if err != nil {
-				// If we can't read a profile, continue with the next one
-				continue
-			}
-
-			// Set browser type and variant
-			profile.BrowserVariant = getBrowserVariant(userDataDir)
-			profile.BrowserType = strings.ToLower(profile.BrowserVariant)
-
-			profiles = append(profiles, profile)
+		canonicalPath, err := common.CanonicalProfilePath(filepath.Join(root.Path, entry.Name()))
+		if err != nil {
+			return nil, fmt.Errorf(
+				"canonicalize %s profile %q: %w",
+				root.BrowserVariant,
+				entry.Name(),
+				err,
+			)
 		}
+
+		profileMetadata, metadataPresent := metadata[entry.Name()]
+		profile := common.Profile{
+			ProfileID:      common.GenerateProfileID(root.BrowserVariant, canonicalPath),
+			BrowserFamily:  chromiumFamily,
+			BrowserVariant: root.BrowserVariant,
+			OSUserName:     root.OSUserName,
+			Directory:      entry.Name(),
+			Path:           canonicalPath,
+		}
+		if metadataPresent && profileMetadata.Name != "" {
+			profile.DisplayName = profileMetadata.Name
+			profile.DisplayNamePresent = true
+		}
+		if metadataPresent && profileMetadata.UserName != "" {
+			profile.Account = profileMetadata.UserName
+			profile.AccountPresent = true
+		}
+
+		profiles = append(profiles, profile)
 	}
 
 	return profiles, nil
 }
 
-// getBrowserVariant determines the browser variant based on the user data directory path
-func getBrowserVariant(userDataDir string) string {
-	switch {
-	case strings.Contains(strings.ToLower(userDataDir), "chrome"):
-		return "chrome"
-	case strings.Contains(strings.ToLower(userDataDir), "edge"):
-		return "edge"
-	case strings.Contains(strings.ToLower(userDataDir), "chromium"):
-		return "chromium"
-	case strings.Contains(strings.ToLower(userDataDir), "brave"):
-		return "brave"
-	case strings.Contains(strings.ToLower(userDataDir), "vivaldi"):
-		return "vivaldi"
-	case strings.Contains(strings.ToLower(userDataDir), "comet"):
-		return "comet"
-	default:
-		return "chromium"
+func readLocalState(root common.BrowserRoot) (map[string]localStateProfile, error) {
+	localStatePath := filepath.Join(root.Path, "Local State")
+	data, err := os.ReadFile(localStatePath)
+	if os.IsNotExist(err) {
+		return map[string]localStateProfile{}, nil
 	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s Local State %q: %w", root.BrowserVariant, localStatePath, err)
+	}
+
+	var state localState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, fmt.Errorf("parse %s Local State %q: %w", root.BrowserVariant, localStatePath, err)
+	}
+	if state.Profile.InfoCache == nil {
+		return map[string]localStateProfile{}, nil
+	}
+	return state.Profile.InfoCache, nil
 }
