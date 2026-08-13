@@ -1,124 +1,212 @@
 package firefox
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 
 	"osquery-extension-browsers/internal/browsers/common"
 )
 
-// FindFirefoxPaths returns the paths to Firefox browser data directories for all users
-func FindFirefoxPaths() []string {
+const firefoxFamily = "firefox"
+
+type rootCandidate struct {
+	variant string
+	path    string
+}
+
+type rootScanResult struct {
+	roots []common.BrowserRoot
+	err   error
+}
+
+// FindRoots returns existing Firefox-family profile roots with their owner and variant.
+func FindRoots() ([]common.BrowserRoot, error) {
 	users, err := common.UsersFromContext()
-	if err != nil || len(users) == 0 {
-		return []string{}
+	if err != nil {
+		return nil, err
 	}
 
-	// Filter accessible users
-	var accessibleUsers []common.UserInfo
+	accessibleUsers := make([]common.UserInfo, 0, len(users))
 	for _, user := range users {
 		if user.IsAccessible {
 			accessibleUsers = append(accessibleUsers, user)
 		}
 	}
 
-	if len(accessibleUsers) == 0 {
+	roots, err := scanUsersWithWorkerPool(accessibleUsers, findFirefoxRootsForUser)
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(roots, func(i, j int) bool {
+		if roots[i].Path == roots[j].Path {
+			return roots[i].OSUserName < roots[j].OSUserName
+		}
+		return roots[i].Path < roots[j].Path
+	})
+	return roots, nil
+}
+
+// FindFirefoxPaths preserves the path-only discovery API for existing callers.
+func FindFirefoxPaths() []string {
+	roots, err := FindRoots()
+	if err != nil {
 		return []string{}
 	}
 
-	// Use worker pool for better performance and resource management
-	allPaths := scanUsersWithWorkerPool(accessibleUsers, findFirefoxPathsForUser)
-
-	return allPaths
+	paths := make([]string, 0, len(roots))
+	for _, root := range roots {
+		paths = append(paths, root.Path)
+	}
+	return paths
 }
 
-// findFirefoxPathsForUser returns Firefox paths for a specific user
-func findFirefoxPathsForUser(user common.UserInfo) []string {
-	var paths []string
+func findFirefoxRootsForUser(user common.UserInfo) ([]common.BrowserRoot, error) {
+	if !user.IsAccessible {
+		return []common.BrowserRoot{}, nil
+	}
 
+	candidates := firefoxRootCandidates(user)
+	roots := make([]common.BrowserRoot, 0, len(candidates))
+	for _, candidate := range candidates {
+		info, err := os.Stat(candidate.path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf(
+				"inspect %s root %q for OS user %q: %w",
+				candidate.variant,
+				candidate.path,
+				user.Username,
+				err,
+			)
+		}
+		if !info.IsDir() {
+			return nil, fmt.Errorf(
+				"inspect %s root %q for OS user %q: path is not a directory",
+				candidate.variant,
+				candidate.path,
+				user.Username,
+			)
+		}
+		roots = append(roots, common.BrowserRoot{
+			Path:           candidate.path,
+			OSUserName:     user.Username,
+			BrowserFamily:  firefoxFamily,
+			BrowserVariant: candidate.variant,
+		})
+	}
+	return roots, nil
+}
+
+func findFirefoxPathsForUser(user common.UserInfo) []string {
+	roots, err := findFirefoxRootsForUser(user)
+	if err != nil {
+		return []string{}
+	}
+	paths := make([]string, 0, len(roots))
+	for _, root := range roots {
+		paths = append(paths, root.Path)
+	}
+	return paths
+}
+
+func firefoxRootCandidates(user common.UserInfo) []rootCandidate {
 	switch runtime.GOOS {
 	case "windows":
-		// Windows paths for Firefox
-		appData := filepath.Join(user.HomeDir, "AppData", "Roaming")
-		paths = append(paths, filepath.Join(appData, "Mozilla", "Firefox", "Profiles"))
-
+		roaming := filepath.Join(user.HomeDir, "AppData", "Roaming")
+		return []rootCandidate{
+			{variant: "firefox", path: filepath.Join(roaming, "Mozilla", "Firefox", "Profiles")},
+			{variant: "zen", path: filepath.Join(roaming, "zen", "Profiles")},
+			{variant: "floorp", path: filepath.Join(roaming, "Floorp", "Profiles")},
+		}
 	case "darwin":
-		// macOS paths for Firefox
-		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Firefox", "Profiles"))
-		// macOS paths for Zen Browser
-		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "zen", "Profiles"))
-		// macOS paths for Floorp
-		paths = append(paths, filepath.Join(user.HomeDir, "Library", "Application Support", "Floorp", "Profiles"))
-
+		applicationSupport := filepath.Join(user.HomeDir, "Library", "Application Support")
+		return []rootCandidate{
+			{variant: "firefox", path: filepath.Join(applicationSupport, "Firefox", "Profiles")},
+			{variant: "zen", path: filepath.Join(applicationSupport, "zen", "Profiles")},
+			{variant: "floorp", path: filepath.Join(applicationSupport, "Floorp", "Profiles")},
+		}
 	default:
-		// Linux paths for Firefox
-		paths = append(paths, filepath.Join(user.HomeDir, ".mozilla", "firefox"))
-		// Linux paths for Zen Browser
-		paths = append(paths, filepath.Join(user.HomeDir, ".zen"))
-		// Linux paths for Zen Browser (Flatpak)
-		paths = append(paths, filepath.Join(user.HomeDir, ".var", "app", "app.zen_browser.zen", ".zen"))
-	}
-
-	// Filter paths that exist
-	var existingPaths []string
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			existingPaths = append(existingPaths, path)
+		return []rootCandidate{
+			{variant: "firefox", path: filepath.Join(user.HomeDir, ".mozilla", "firefox")},
+			{variant: "zen", path: filepath.Join(user.HomeDir, ".zen")},
+			{
+				variant: "zen",
+				path: filepath.Join(
+					user.HomeDir,
+					".var",
+					"app",
+					"app.zen_browser.zen",
+					".zen",
+				),
+			},
+			{variant: "floorp", path: filepath.Join(user.HomeDir, ".floorp")},
+			{
+				variant: "floorp",
+				path: filepath.Join(
+					user.HomeDir,
+					".var",
+					"app",
+					"one.ablaze.floorp",
+					".floorp",
+				),
+			},
 		}
 	}
-
-	return existingPaths
 }
 
-// scanUsersWithWorkerPool scans users concurrently using a worker pool pattern
-func scanUsersWithWorkerPool(users []common.UserInfo, scanFunc func(common.UserInfo) []string) []string {
-	// Determine optimal number of workers based on system and user count
-	maxWorkers := runtime.NumCPU()
-	if len(users) < maxWorkers {
-		maxWorkers = len(users)
-	}
-	if maxWorkers > 10 {
-		maxWorkers = 10 // Cap at 10 to avoid excessive resource usage
+// deliberate: guideline is 7 vars; one scope owns worker and channel lifecycles.
+func scanUsersWithWorkerPool(
+	users []common.UserInfo,
+	scan func(common.UserInfo) ([]common.BrowserRoot, error),
+) ([]common.BrowserRoot, error) {
+	if len(users) == 0 {
+		return []common.BrowserRoot{}, nil
 	}
 
-	// Create channels for work distribution
-	userChan := make(chan common.UserInfo, len(users))
-	resultChan := make(chan []string, len(users))
+	workerCount := min(runtime.NumCPU(), len(users), 10)
+	userChannel := make(chan common.UserInfo, len(users))
+	resultChannel := make(chan rootScanResult, len(users))
 
-	// Start workers
-	var wg sync.WaitGroup
-	for i := 0; i < maxWorkers; i++ {
-		wg.Add(1)
+	var waitGroup sync.WaitGroup
+	for range workerCount {
+		waitGroup.Add(1)
 		go func() {
-			defer wg.Done()
-			for user := range userChan {
-				paths := scanFunc(user)
-				resultChan <- paths
+			defer waitGroup.Done()
+			for user := range userChannel {
+				roots, err := scan(user)
+				resultChannel <- rootScanResult{roots: roots, err: err}
 			}
 		}()
 	}
 
-	// Send work to workers
 	go func() {
-		defer close(userChan)
+		defer close(userChannel)
 		for _, user := range users {
-			userChan <- user
+			userChannel <- user
 		}
 	}()
 
-	// Close result channel when all workers are done
 	go func() {
-		wg.Wait()
-		close(resultChan)
+		waitGroup.Wait()
+		close(resultChannel)
 	}()
 
-	// Collect results
-	var allPaths []string
-	for paths := range resultChan {
-		allPaths = append(allPaths, paths...)
+	var roots []common.BrowserRoot
+	var firstError error
+	for result := range resultChannel {
+		if result.err != nil && firstError == nil {
+			firstError = result.err
+		}
+		roots = append(roots, result.roots...)
 	}
-
-	return allPaths
+	if firstError != nil {
+		return nil, firstError
+	}
+	return roots, nil
 }

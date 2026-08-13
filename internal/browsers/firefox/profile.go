@@ -1,179 +1,171 @@
 package firefox
 
 import (
-	"errors"
-	"io/ioutil"
+	"fmt"
 	"os"
 	"path/filepath"
-
-	"osquery-extension-browsers/internal/browsers/common"
+	"sort"
+	"strings"
 
 	"github.com/go-ini/ini"
+
+	"osquery-extension-browsers/internal/browsers/common"
 )
 
-// FindProfiles discovers all profiles for Firefox browsers
+// FindProfiles discovers all current Firefox-family profiles.
 func FindProfiles() ([]common.Profile, error) {
+	roots, err := FindRoots()
+	if err != nil {
+		return nil, fmt.Errorf("find Firefox roots: %w", err)
+	}
+
 	var profiles []common.Profile
-
-	// Get the paths to Firefox browser data directories
-	firefoxPaths := FindFirefoxPaths()
-
-	for _, profilesDir := range firefoxPaths {
-		// Check if the profiles directory exists
-		if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
-			continue
-		}
-
-		// Read the profiles.ini file
-		profilesIniPath := filepath.Join(profilesDir, "profiles.ini")
-		if _, err := os.Stat(profilesIniPath); os.IsNotExist(err) {
-			// If profiles.ini doesn't exist, try to find profiles in the directory
-			profilesFromDir, err := findProfilesInDirectory(profilesDir)
-			if err == nil {
-				profiles = append(profiles, profilesFromDir...)
-			}
-			continue
-		}
-
-		// Parse the profiles.ini file
-		profilesFromIni, err := readProfilesIni(profilesIniPath, profilesDir)
+	for _, root := range roots {
+		rootProfiles, err := FindProfilesForRoot(root)
 		if err != nil {
-			continue
+			return nil, err
 		}
-
-		profiles = append(profiles, profilesFromIni...)
+		profiles = append(profiles, rootProfiles...)
 	}
 
+	sort.Slice(profiles, func(i, j int) bool {
+		return profiles[i].ProfileID < profiles[j].ProfileID
+	})
 	return profiles, nil
 }
 
-// readProfilesIni reads profile information from the profiles.ini file
-func readProfilesIni(profilesIniPath, profilesDir string) ([]common.Profile, error) {
-	var profiles []common.Profile
-
-	// Load the INI file
-	cfg, err := ini.Load(profilesIniPath)
-	if err != nil {
-		return profiles, err
+// FindProfilesForRoot reads profiles.ini metadata or falls back to directory inventory.
+func FindProfilesForRoot(root common.BrowserRoot) ([]common.Profile, error) {
+	if _, err := os.Stat(root.Path); os.IsNotExist(err) {
+		return []common.Profile{}, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("inspect %s root %q: %w", root.BrowserVariant, root.Path, err)
 	}
 
-	// Iterate through sections
-	for _, section := range cfg.Sections() {
-		// Skip the default section
-		if section.Name() == "DEFAULT" {
+	profilesINIPath, found, err := findProfilesINI(root.Path)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"inspect %s profiles.ini under %q: %w",
+			root.BrowserVariant,
+			root.Path,
+			err,
+		)
+	}
+	if found {
+		return readProfilesINI(root, profilesINIPath)
+	}
+	return findProfilesInDirectory(root)
+}
+
+func findProfilesINI(rootPath string) (path string, found bool, err error) {
+	candidates := []string{filepath.Join(rootPath, "profiles.ini")}
+	if filepath.Base(rootPath) == "Profiles" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(rootPath), "profiles.ini"))
+	}
+
+	for _, candidate := range candidates {
+		info, statErr := os.Stat(candidate)
+		if os.IsNotExist(statErr) {
+			continue
+		}
+		if statErr != nil {
+			return "", false, statErr
+		}
+		if !info.IsDir() {
+			return candidate, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func readProfilesINI(root common.BrowserRoot, profilesINIPath string) ([]common.Profile, error) {
+	configuration, err := ini.Load(profilesINIPath)
+	if err != nil {
+		return nil, fmt.Errorf("read %s profiles.ini %q: %w", root.BrowserVariant, profilesINIPath, err)
+	}
+
+	profiles := make([]common.Profile, 0)
+	for _, section := range configuration.Sections() {
+		if !strings.HasPrefix(section.Name(), "Profile") || !section.HasKey("Path") {
 			continue
 		}
 
-		// Check if this is a profile section
-		if section.HasKey("Path") {
-			profile, err := parseProfileSection(section, profilesDir)
-			if err != nil {
-				continue
-			}
-
-			profiles = append(profiles, profile)
+		profilePath := section.Key("Path").String()
+		if section.Key("IsRelative").MustBool(true) {
+			profilePath = filepath.Join(filepath.Dir(profilesINIPath), profilePath)
 		}
+
+		if _, err := os.Stat(profilePath); os.IsNotExist(err) {
+			continue
+		} else if err != nil {
+			return nil, fmt.Errorf("inspect %s profile %q: %w", root.BrowserVariant, profilePath, err)
+		}
+
+		displayName := section.Key("Name").String()
+		profile, err := newProfile(root, profilePath, displayName, displayName != "")
+		if err != nil {
+			return nil, err
+		}
+		profiles = append(profiles, profile)
 	}
 
+	sort.Slice(profiles, func(i, j int) bool {
+		return profiles[i].ProfileID < profiles[j].ProfileID
+	})
 	return profiles, nil
 }
 
-// parseProfileSection parses a profile section from the profiles.ini file
-func parseProfileSection(section *ini.Section, profilesDir string) (common.Profile, error) {
-	profile := common.Profile{
-		BrowserType:    "firefox",
-		BrowserVariant: "firefox",
-	}
-
-	// Get the profile name
-	if nameKey := section.Key("Name"); nameKey != nil {
-		profile.Name = nameKey.String()
-	}
-
-	// Get the profile path
-	pathKey := section.Key("Path")
-	if pathKey == nil {
-		return profile, errors.New("profile path not found")
-	}
-
-	profilePath := pathKey.String()
-
-	// Check if the path is relative
-	isRelative := true
-	if isRelativeKey := section.Key("IsRelative"); isRelativeKey != nil {
-		isRelative = isRelativeKey.MustBool(true)
-	}
-
-	if isRelative {
-		profile.Path = filepath.Join(profilesDir, profilePath)
-	} else {
-		profile.Path = profilePath
-	}
-
-	// Set the profile ID based on the directory name
-	profile.ID = filepath.Base(profile.Path)
-
-	// Check if this is a Zen Browser profile
-	if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" ||
-		filepath.Base(filepath.Dir(profilesDir)) == "zen" || filepath.Base(profilesDir) == "zen" {
-		profile.BrowserType = "zen"
-		profile.BrowserVariant = "zen"
-	}
-
-	// Check if this is a Floorp profile
-	if filepath.Base(filepath.Dir(profilesDir)) == "Floorp" || filepath.Base(profilesDir) == "Floorp" {
-		profile.BrowserType = "floorp"
-		profile.BrowserVariant = "floorp"
-	}
-
-	return profile, nil
-}
-
-// findProfilesInDirectory finds profiles in a directory when profiles.ini is not available
-func findProfilesInDirectory(profilesDir string) ([]common.Profile, error) {
-	var profiles []common.Profile
-
-	// Check if the profiles directory exists
-	if _, err := os.Stat(profilesDir); os.IsNotExist(err) {
-		return profiles, err
-	}
-
-	// Read the contents of the profiles directory
-	entries, err := ioutil.ReadDir(profilesDir)
+func findProfilesInDirectory(root common.BrowserRoot) ([]common.Profile, error) {
+	entries, err := os.ReadDir(root.Path)
 	if err != nil {
-		return profiles, err
+		return nil, fmt.Errorf("read %s profile root %q: %w", root.BrowserVariant, root.Path, err)
 	}
 
-	// Iterate through entries
+	profiles := make([]common.Profile, 0)
 	for _, entry := range entries {
-		if entry.IsDir() {
-			profile := common.Profile{
-				ID:             entry.Name(),
-				Name:           entry.Name(),
-				Path:           filepath.Join(profilesDir, entry.Name()),
-				BrowserType:    "firefox",
-				BrowserVariant: "firefox",
-			}
-
-			// Check if this is a Zen Browser profile directory
-			if filepath.Base(filepath.Dir(profilesDir)) == ".zen" || filepath.Base(profilesDir) == ".zen" ||
-				filepath.Base(filepath.Dir(profilesDir)) == "zen" || filepath.Base(profilesDir) == "zen" {
-				profile.BrowserType = "zen"
-				profile.BrowserVariant = "zen"
-			}
-
-			// Check if this is a Floorp profile directory
-			if filepath.Base(filepath.Dir(profilesDir)) == "Floorp" || filepath.Base(profilesDir) == "Floorp" {
-				profile.BrowserType = "floorp"
-				profile.BrowserVariant = "floorp"
-			}
-
-			// Debug output
-			// fmt.Printf("Profile Name: %s, Profile Path: %s, BrowserType: %s, BrowserVariant: %s\n", profile.Name, profile.Path, profile.BrowserType, profile.BrowserVariant)
-
-			profiles = append(profiles, profile)
+		if !entry.IsDir() {
+			continue
 		}
+
+		profile, err := newProfile(
+			root,
+			filepath.Join(root.Path, entry.Name()),
+			"",
+			false,
+		)
+		if err != nil {
+			return nil, err
+		}
+		profiles = append(profiles, profile)
+	}
+	return profiles, nil
+}
+
+func newProfile(
+	root common.BrowserRoot,
+	profilePath string,
+	displayName string,
+	displayNamePresent bool,
+) (common.Profile, error) {
+	canonicalPath, err := common.CanonicalProfilePath(profilePath)
+	if err != nil {
+		return common.Profile{}, fmt.Errorf(
+			"canonicalize %s profile %q: %w",
+			root.BrowserVariant,
+			profilePath,
+			err,
+		)
 	}
 
-	return profiles, nil
+	return common.Profile{
+		ProfileID:          common.GenerateProfileID(root.BrowserVariant, canonicalPath),
+		BrowserFamily:      firefoxFamily,
+		BrowserVariant:     root.BrowserVariant,
+		OSUserName:         root.OSUserName,
+		Directory:          filepath.Base(filepath.Clean(profilePath)),
+		Path:               canonicalPath,
+		DisplayName:        displayName,
+		DisplayNamePresent: displayNamePresent,
+		AccountPresent:     false,
+	}, nil
 }

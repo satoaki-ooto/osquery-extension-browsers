@@ -5,104 +5,254 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"osquery-extension-browsers/internal/browsers/common"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
-// FindHistory discovers history entries for a specific Firefox profile.
-//
-// The function automatically handles missing places.sqlite databases by returning
-// an empty slice with no error (silent skip). This ensures that profiles without
-// history databases don't cause the entire browser history collection to fail.
-//
-// Behavior:
-//   - If places.sqlite doesn't exist: returns empty []common.HistoryEntry with nil error
-//   - If places.sqlite exists but is invalid: returns error from database operations
-//   - If places.sqlite exists and is valid: returns history entries or database errors
-//
-// This graceful handling aligns with the robust error handling pattern used throughout
-// the extension, where individual profile failures don't stop overall processing.
-func FindHistory(profile common.Profile) ([]common.HistoryEntry, error) {
-	historyDBPath := getHistoryDBPath(profile.Path)
-
-	// Check if places.sqlite exists before attempting to open it
-	if _, err := os.Stat(historyDBPath); os.IsNotExist(err) {
-		// Return empty slice with no error (silent skip)
-		return []common.HistoryEntry{}, nil
-	}
-
-	// Open the SQLite database
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro&immutable=1", historyDBPath))
+// FindVisitObservations reads stable native Firefox visit rows.
+func FindVisitObservations(
+	profile common.Profile,
+	nativeURLIDs []int64,
+) (observations []common.VisitObservation, err error) {
+	databasePath := filepath.Join(profile.Path, "places.sqlite")
+	exists, err := regularFileExists(databasePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"inspect %s history database for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
 	}
-	defer db.Close()
+	if !exists {
+		return []common.VisitObservation{}, nil
+	}
 
-	// Query the history entries
-	// We're using a simple query to get the most recent visits
-	query := `
-		SELECT p.id, p.url, p.title, h.visit_date, p.visit_count
-		FROM moz_places p
-		JOIN moz_historyvisits h ON p.id = h.place_id
-		ORDER BY h.visit_date DESC
-	`
-
-	rows, err := db.Query(query)
+	database, err := common.OpenBrowserSQLite(databasePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"open %s history database for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := database.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf(
+				"close %s history database for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				closeErr,
+			)
+		}
+	}()
 
-	var historyEntries []common.HistoryEntry
+	query := "SELECT id, place_id, visit_date FROM moz_historyvisits"
+	query, arguments := addInt64Filter(query, "place_id", nativeURLIDs)
+	query += " ORDER BY id"
+
+	rows, err := database.Query(query, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"query %s visit observations for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
+	}
+	defer func() {
+		if closeErr := rows.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf(
+				"close %s visit rows for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				closeErr,
+			)
+		}
+	}()
 
 	for rows.Next() {
-		var id int64
-		var url string
-		var title sql.NullString
-		var visitDate int64
-		var visitCount int
-
-		err := rows.Scan(&id, &url, &title, &visitDate, &visitCount)
-		if err != nil {
-			return nil, err
+		var nativeVisitID int64
+		var nativeURLID int64
+		var visitTimeUS int64
+		if err := rows.Scan(&nativeVisitID, &nativeURLID, &visitTimeUS); err != nil {
+			return nil, fmt.Errorf(
+				"scan %s visit observation for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				err,
+			)
 		}
 
-		historyEntry := common.HistoryEntry{
-			ID:             id,
-			URL:            url,
-			Title:          title.String,
-			VisitTime:      parseUnixTime(visitDate),
-			VisitCount:     visitCount,
-			ProfileID:      profile.ID,
-			BrowserType:    profile.BrowserType,
+		observations = append(observations, common.VisitObservation{
+			ObservationID: common.GenerateObservationID(
+				profile.BrowserVariant,
+				profile.Path,
+				nativeVisitID,
+			),
+			ProfileID:      profile.ProfileID,
+			BrowserFamily:  firefoxFamily,
 			BrowserVariant: profile.BrowserVariant,
+			NativeVisitID:  nativeVisitID,
+			NativeURLID:    nativeURLID,
+			VisitTime:      visitTimeUS / 1000000,
+			VisitTimeUS:    visitTimeUS,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(
+			"iterate %s visit observations for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
+	}
+
+	return observations, nil
+}
+
+// FindHistoryPages reads current Firefox URL/page state.
+func FindHistoryPages(
+	profile common.Profile,
+	nativeURLIDs []int64,
+) (pages []common.HistoryPage, err error) {
+	databasePath := filepath.Join(profile.Path, "places.sqlite")
+	exists, err := regularFileExists(databasePath)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"inspect %s history database for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
+	}
+	if !exists {
+		return []common.HistoryPage{}, nil
+	}
+
+	database, err := common.OpenBrowserSQLite(databasePath)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"open %s history database for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
+	}
+	defer func() {
+		if closeErr := database.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf(
+				"close %s history database for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				closeErr,
+			)
+		}
+	}()
+
+	query := "SELECT id, url, title, visit_count, last_visit_date, hidden FROM moz_places"
+	query, arguments := addInt64Filter(query, "id", nativeURLIDs)
+	query += " ORDER BY id"
+
+	rows, err := database.Query(query, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"query %s history pages for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
+	}
+	defer func() {
+		if closeErr := rows.Close(); err == nil && closeErr != nil {
+			err = fmt.Errorf(
+				"close %s page rows for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				closeErr,
+			)
+		}
+	}()
+
+	for rows.Next() {
+		var nativeURLID int64
+		var pageURL string
+		var title sql.NullString
+		var visitCount int64
+		var lastVisitTimeUS sql.NullInt64
+		var hidden sql.NullInt64
+		if err := rows.Scan(
+			&nativeURLID,
+			&pageURL,
+			&title,
+			&visitCount,
+			&lastVisitTimeUS,
+			&hidden,
+		); err != nil {
+			return nil, fmt.Errorf(
+				"scan %s history page for profile %q: %w",
+				profile.BrowserVariant,
+				profile.Path,
+				err,
+			)
 		}
 
-		historyEntries = append(historyEntries, historyEntry)
+		page := common.HistoryPage{
+			ProfileID:      profile.ProfileID,
+			NativeURLID:    nativeURLID,
+			BrowserFamily:  firefoxFamily,
+			BrowserVariant: profile.BrowserVariant,
+			URL:            pageURL,
+			Title:          title.String,
+			TitlePresent:   title.Valid,
+			VisitCount:     visitCount,
+			Hidden:         hidden.Int64,
+			HiddenPresent:  hidden.Valid,
+		}
+		if lastVisitTimeUS.Valid {
+			page.LastVisitTime = lastVisitTimeUS.Int64 / 1000000
+			page.LastVisitTimePresent = true
+		}
+		pages = append(pages, page)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf(
+			"iterate %s history pages for profile %q: %w",
+			profile.BrowserVariant,
+			profile.Path,
+			err,
+		)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, err
-	}
-
-	return historyEntries, nil
+	return pages, nil
 }
 
-// getHistoryDBPath returns the path to the history database for a given profile
-func getHistoryDBPath(profilePath string) string {
-	return filepath.Join(profilePath, "places.sqlite")
+func regularFileExists(path string) (bool, error) {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if info.IsDir() {
+		return false, fmt.Errorf("%q is a directory", path)
+	}
+	return true, nil
 }
 
-// parseUnixTime converts Unix timestamp to time.Time
-// Firefox's timestamp is in microseconds since Unix epoch (1970-01-01 00:00:00 UTC)
-func parseUnixTime(unixTime int64) time.Time {
-	if unixTime == 0 {
-		return time.Time{}
+func addInt64Filter(query, column string, values []int64) (string, []any) {
+	if len(values) == 0 {
+		return query, nil
 	}
 
-	// Convert microseconds to nanoseconds for time.Unix
-	return time.Unix(0, unixTime*1000)
+	placeholders := make([]string, len(values))
+	arguments := make([]any, len(values))
+	for index, value := range values {
+		placeholders[index] = "?"
+		arguments[index] = value
+	}
+	return query + " WHERE " + column + " IN (" + strings.Join(placeholders, ",") + ")", arguments
 }
