@@ -157,6 +157,7 @@ func chromiumRootCandidates(user common.UserInfo) []rootCandidate {
 	}
 }
 
+// deliberate: guideline is 7 vars; one scope owns worker and channel lifecycles.
 func scanUsersWithWorkerPool(
 	users []common.UserInfo,
 	scan func(common.UserInfo) ([]common.BrowserRoot, error),

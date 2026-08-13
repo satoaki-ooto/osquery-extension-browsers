@@ -138,6 +138,7 @@ type snapshotFileState struct {
 	info   os.FileInfo
 }
 
+// deliberate: guideline is 7 vars/branches; one function keeps each snapshot attempt atomic.
 func createSQLiteSnapshot(databasePath string) (string, string, error) {
 	absolutePath, err := filepath.Abs(databasePath)
 	if err != nil {
